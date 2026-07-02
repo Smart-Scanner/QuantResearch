@@ -1,0 +1,91 @@
+symbol,stocks_sector,dhan_sector,map_a_index,map_b_index
+COROMANDEL,Agri,Chemicals,Nifty Commodities,Nifty Chemicals
+DHANUKA,Agri,Chemicals,Nifty Commodities,Nifty Chemicals
+GODREJAGRO,Agri,Food Products,Nifty Commodities,Nifty FMCG
+RALLIS,Agri,Chemicals,Nifty Commodities,Nifty Chemicals
+UPL,Agri,Chemicals,Nifty Commodities,Nifty Chemicals
+MAHSCOOTER,Auto,Financial Services,Nifty Auto,Nifty Financial Services
+PENIND,Auto,Capital Goods,Nifty Auto,Nifty Capital Goods
+SKFINDIA,Auto,Industrial Products,Nifty Auto,Nifty Capital Goods
+SWARAJENG,Auto,Industrial Products,Nifty Auto,Nifty Capital Goods
+ACC,Cement,Construction,Nifty Cement,Nifty Construction
+AMBUJACEM,Cement,Construction,Nifty Cement,Nifty Construction
+HEIDELBERG,Cement,Construction,Nifty Cement,Nifty Construction
+JKCEMENT,Cement,Construction,Nifty Cement,Nifty Construction
+JKLAKSHMI,Cement,Construction,Nifty Cement,Nifty Construction
+NUVOCO,Cement,Construction,Nifty Cement,Nifty Construction
+ORIENTCEM,Cement,Construction,Nifty Cement,Nifty Construction
+RAMCOCEM,Cement,Construction,Nifty Cement,Nifty Construction
+SAGCEM,Cement,Construction,Nifty Cement,Nifty Construction
+SHREECEM,Cement,Construction,Nifty Cement,Nifty Construction
+STARCEMENT,Cement,Construction,Nifty Cement,Nifty Construction
+ULTRACEMCO,Cement,Construction,Nifty Cement,Nifty Construction
+ASAHIINDIA,Chemicals,Automobiles,Nifty Chemicals,Nifty Auto
+ZFCVINDIA,Chemicals,Automobiles,Nifty Chemicals,Nifty Auto
+DEVYANI,Consumer,Leisure Services,Nifty Consumer Durables,Nifty India Tourism
+JUBLFOOD,Consumer,Leisure Services,Nifty Consumer Durables,Nifty India Tourism
+RAYMOND,Consumer,Realty,Nifty Consumer Durables,Nifty Realty
+SAPPHIRE,Consumer,Leisure Services,Nifty Consumer Durables,Nifty India Tourism
+WESTLIFE,Consumer,Leisure Services,Nifty Consumer Durables,Nifty India Tourism
+BEML,Defence,Automobiles,Nifty India Defence,Nifty Auto
+CENTUM,Defence,Capital Goods,Nifty India Defence,Nifty Capital Goods
+COCHINSHIP,Defence,Capital Goods,Nifty India Defence,Nifty Capital Goods
+DCAL,Defence,Healthcare,Nifty India Defence,Nifty Pharma
+STEL,Defence,Financial Services,Nifty India Defence,Nifty Financial Services
+ADANIGREEN,Energy,Power,Nifty Oil & Gas,Nifty Power
+GNFC,Energy,Chemicals,Nifty Oil & Gas,Nifty Chemicals
+SUZLON,Energy,Capital Goods,Nifty Oil & Gas,Nifty Capital Goods
+EIDPARRY,FMCG,Chemicals,Nifty FMCG,Nifty Chemicals
+GALAXYSURF,FMCG,Chemicals,Nifty FMCG,Nifty Chemicals
+ABSLAMC,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+ANGELONE,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+BSE,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+CAMS,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+CDSL,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+KFINTECH,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+MCX,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+MFSL,Finance,Insurance,Nifty Financial Services,Nifty Insurance
+MOTILALOFS,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+UTIAMC,Finance,Capital Markets,Nifty Financial Services,Nifty Capital Markets
+MEDPLUS,Healthcare,Retail,Nifty Healthcare Index,Nifty Retail
+POLYMED,Healthcare,Healthcare,Nifty Healthcare Index,Nifty Pharma
+JUSTDIAL,IT,Retail,Nifty IT,Nifty Retail
+NAUKRI,IT,Retail,Nifty IT,Nifty Retail
+NAZARA,IT,Media,Nifty IT,Nifty Media
+NIITLTD,IT,Consumer Services,Nifty IT,Nifty Consumer Services
+ONMOBILE,IT,Telecom,Nifty IT,Nifty Telecommunications
+PAYTM,IT,Financial Services,Nifty IT,Nifty Financial Services
+ROUTE,IT,Telecom,Nifty IT,Nifty Telecommunications
+ASTEC,Industrial,Chemicals,Nifty Capital Goods,Nifty Chemicals
+BHARATFORG,Industrial,Automobiles,Nifty Capital Goods,Nifty Auto
+GRAVITA,Industrial,Metals & Mining,Nifty Capital Goods,Nifty Metal
+IONEXCHANG,Industrial,Utilities,Nifty Capital Goods,Nifty Power
+ISGEC,Industrial,Construction,Nifty Capital Goods,Nifty Construction
+LLOYDSME,Industrial,Metals & Mining,Nifty Capital Goods,Nifty Metal
+RAJRATAN,Industrial,Automobiles,Nifty Capital Goods,Nifty Auto
+SJS,Industrial,Automobiles,Nifty Capital Goods,Nifty Auto
+SOLARINDS,Industrial,Aerospace & Defense,Nifty Capital Goods,Nifty India Defence
+STERTOOLS,Industrial,Automobiles,Nifty Capital Goods,Nifty Auto
+TIINDIA,Industrial,Automobiles,Nifty Capital Goods,Nifty Auto
+ADANIENT,Infra,Metals & Mining,Nifty Infrastructure,Nifty Metal
+ADANIPORTS,Infra,Transport,Nifty Infrastructure,Nifty Transportation & Logistics
+BLS,Infra,Leisure Services,Nifty Infrastructure,Nifty India Tourism
+GRINFRA,Infra,Construction,Nifty Infrastructure,Nifty Construction
+RITES,Infra,Construction,Nifty Infrastructure,Nifty Construction
+RVNL,Infra,Construction,Nifty Infrastructure,Nifty Construction
+POLICYBZR,Insurance,Financial Services,Nifty Insurance,Nifty Financial Services
+GALLANTT,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+GPIL,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+JINDALSAW,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+MAHSEAMLES,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+MIDHANI,Metals,Aerospace & Defense,Nifty Metal,Nifty India Defence
+SHYAMMETL,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+WELCORP,Metals,Industrial Products,Nifty Metal,Nifty Capital Goods
+NLCINDIA,Mining,Power,Nifty Metal,Nifty Power
+ANURAS,Pharma,Chemicals,Nifty Pharma,Nifty Chemicals
+GPPL,Power,Transport,Nifty Power,Nifty Transportation & Logistics
+IEX,Power,Capital Markets,Nifty Power,Nifty Capital Markets
+POWERMECH,Power,Construction,Nifty Power,Nifty Construction
+RAILTEL,Railways,Telecom,Nifty India Railways PSU,Nifty Telecommunications
+TEXRAIL,Railways,Capital Goods,Nifty India Railways PSU,Nifty Capital Goods
+TITAGARH,Railways,Capital Goods,Nifty India Railways PSU,Nifty Capital Goods

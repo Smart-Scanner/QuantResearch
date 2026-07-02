@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(docker exec quantresearch-pg pg_isready -U quant -d quantresearch 2>&1)",
+      "PowerShell(docker exec quantresearch-pg psql -U quant -d quantresearch -c \"SELECT current_user, current_database\\(\\), version\\(\\);\" 2>&1)",
+      "Bash(ps -W)"
+    ]
+  }
+}

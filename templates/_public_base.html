@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{% block title %}AI Smart Screener — Smarter stock picks for the Indian market{% endblock %}</title>
+    <meta name="description"
+        content="{% block description %}High-conviction stock picks for NSE traders. 18-parameter scoring, live prices, portfolio tracking, market regime detection.{% endblock %}">
+    <style>
+        :root,
+        [data-theme="dark"] {
+            --bg: #0e0e0e;
+            --bg-soft: #161616;
+            --panel: #1c1c1c;
+            --panel-2: #222;
+            --border: #2a2a2a;
+            --border-light: #3a3a3a;
+            --text: #f0f0f0;
+            --text-dim: #a8a8a8;
+            --text-mute: #666;
+            --primary: #00C8FF;
+            --primary-soft: rgba(0, 200, 255, 0.12);
+            --primary-glow: rgba(0, 200, 255, 0.4);
+            --green: #34a853;
+            --red: #ef5350;
+            --blue: #4285f4;
+            --gold: #f5a623;
+            --nav-bg: rgba(14, 14, 14, 0.85);
+            --max-w: 1180px;
+            --radius: 10px;
+            --radius-lg: 14px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        [data-theme="light"] {
+            --bg: #ffffff;
+            --bg-soft: #f5f6f8;
+            --panel: #ffffff;
+            --panel-2: #f0f2f5;
+            --border: #e3e6eb;
+            --border-light: #cdd2da;
+            --text: #1a1d22;
+            --text-dim: #525a66;
+            --text-mute: #8a939e;
+            --primary: #0078CC;
+            --primary-soft: rgba(0, 120, 204, 0.1);
+            --primary-glow: rgba(0, 120, 204, 0.3);
+            --green: #1e8e3e;
+            --red: #d93025;
+            --blue: #1a73e8;
+            --gold: #ea8600;
+            --nav-bg: rgba(255, 255, 255, 0.85);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        html {
+            scroll-behavior: smooth
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none
+        }
+
+        button {
+            font-family: inherit
+        }
+
+        /* ── Nav ─────────────────────────────────────────── */
+        .nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--nav-bg);
+            backdrop-filter: saturate(180%) blur(14px);
+            -webkit-backdrop-filter: saturate(180%) blur(14px);
+            border-bottom: 1px solid var(--border)
+        }
+
+        .nav-inner {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            gap: 32px
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            font-size: 17px;
+            color: var(--text);
+            letter-spacing: -0.3px
+        }
+
+        .nav-brand img.logo-img {
+            height: 30px;
+            width: auto;
+            display: block
+        }
+
+        .nav-brand .wordmark {
+            background: linear-gradient(135deg, #38D6FF 0%, #00C8FF 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 6px;
+            flex: 1;
+            margin-left: 8px
+        }
+
+        .nav-links a {
+            padding: 8px 12px;
+            font-size: 13.5px;
+            color: var(--text-dim);
+            border-radius: 7px;
+            transition: all 0.15s;
+            font-weight: 500
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+            background: rgba(255, 255, 255, 0.04)
+        }
+
+        .nav-links a.active {
+            color: var(--primary)
+        }
+
+        .nav-cta {
+            display: flex;
+            align-items: center;
+            gap: 10px
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 13.5px;
+            padding: 9px 18px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            line-height: 1;
+            white-space: nowrap
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--text);
+            border-color: var(--border-light)
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--primary);
+            color: var(--primary)
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+            box-shadow: 0 6px 20px -6px var(--primary-glow)
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            border-color: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px -6px var(--primary-glow)
+        }
+
+        .btn-lg {
+            padding: 13px 26px;
+            font-size: 14.5px;
+            border-radius: 9px
+        }
+
+        .btn svg {
+            width: 14px;
+            height: 14px
+        }
+
+        /* Theme toggle */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            color: var(--text-dim);
+            padding: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            width: 36px;
+            height: 36px
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--primary);
+            color: var(--primary)
+        }
+
+        .theme-toggle svg {
+            width: 16px;
+            height: 16px;
+            display: none
+        }
+
+        [data-theme="dark"] .theme-toggle .icon-sun {
+            display: block
+        }
+
+        [data-theme="light"] .theme-toggle .icon-moon {
+            display: block
+        }
+
+        @media (max-width:760px) {
+            .nav-links {
+                display: none
+            }
+
+            .nav-inner {
+                gap: 12px;
+                padding: 0 16px
+            }
+        }
+
+        /* ── Footer ───────────────────────────────────────── */
+        .footer {
+            border-top: 1px solid var(--border);
+            background: var(--bg-soft);
+            margin-top: 80px
+        }
+
+        .footer-inner {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 48px 24px 32px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px
+        }
+
+        .footer-brand {
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .footer-brand .name {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-weight: 700;
+            font-size: 15px;
+            color: var(--text)
+        }
+
+        .footer-brand .name img.logo-img {
+            height: 26px;
+            width: auto;
+            display: block
+        }
+
+        .footer-brand p {
+            font-size: 12.5px;
+            color: var(--text-mute);
+            line-height: 1.6;
+            max-width: 320px
+        }
+
+        .footer-col h4 {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-dim);
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            margin-bottom: 14px
+        }
+
+        .footer-col a {
+            display: block;
+            font-size: 13px;
+            color: var(--text-mute);
+            padding: 5px 0;
+            transition: color 0.15s
+        }
+
+        .footer-col a:hover {
+            color: var(--primary)
+        }
+
+        .footer-bottom {
+            border-top: 1px solid var(--border);
+            margin-top: 0;
+            padding: 20px 24px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-mute)
+        }
+
+        .footer-disclaimer {
+            max-width: var(--max-w);
+            margin: 0 auto 24px;
+            padding: 0 24px;
+            font-size: 11px;
+            color: var(--text-mute);
+            line-height: 1.6;
+            font-style: italic
+        }
+
+        @media (max-width:760px) {
+            .footer-inner {
+                grid-template-columns: 1fr 1fr;
+                gap: 32px;
+                padding: 36px 16px 24px
+            }
+
+            .footer-brand {
+                grid-column: span 2
+            }
+        }
+
+        /* ── Section + utility ────────────────────────────── */
+        .section {
+            max-width: var(--max-w);
+            margin: 0 auto;
+            padding: 0 24px
+        }
+
+        .eyebrow {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            margin-bottom: 14px;
+            padding: 5px 10px;
+            background: var(--primary-soft);
+            border-radius: 6px;
+            border: 1px solid rgba(0, 200, 255, 0.2)
+        }
+
+        .section-head {
+            text-align: center;
+            max-width: 680px;
+            margin: 0 auto 56px
+        }
+
+        .section-head h2 {
+            font-size: 38px;
+            font-weight: 700;
+            letter-spacing: -0.8px;
+            line-height: 1.12;
+            margin-bottom: 14px
+        }
+
+        .section-head p {
+            font-size: 16px;
+            color: var(--text-dim);
+            line-height: 1.6
+        }
+
+        @media (max-width:760px) {
+            .section-head h2 {
+                font-size: 28px
+            }
+
+            .section-head p {
+                font-size: 14.5px
+            }
+        }
+    </style>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+    <script>
+        // Apply theme before render to avoid flash-of-wrong-theme.
+        (function () {
+            var t = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+        function toggleTheme() {
+            var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+            var next = cur === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+        }
+    </script>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="{{ url_for('pages.index') }}" class="nav-brand" aria-label="AI Smart Screener">
+                <img src="{{ url_for('static', filename='logo.svg') }}" class="logo-img" alt="">
+                <span class="wordmark">AI Smart Screener</span>
+            </a>
+            <div class="nav-links">
+                <a href="{{ url_for('pages.index') }}#capabilities"
+                    class="{% if active=='home' %}active{% endif %}">Features</a>
+                <a href="{{ url_for('pages.about') }}" class="{% if active=='about' %}active{% endif %}">About</a>
+            </div>
+            <div class="nav-cta">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark mode"
+                    aria-label="Toggle theme">
+                    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="4" />
+                        <path
+                            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                    </svg>
+                    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
+                {% if session.get('user_id') %}
+                <a href="{{ url_for('pages.index') }}" class="btn btn-primary">Go to dashboard
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                </a>
+                {% else %}
+                <a href="{{ url_for('auth.local_login') }}" class="btn btn-ghost">Sign in</a>
+                <a href="{{ url_for('auth.local_login') }}" class="btn btn-primary">Launch Dashboard
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <div class="name"><img src="{{ url_for('static', filename='logo.svg') }}" class="logo-img" alt=""> AI
+                    Smart Screener</div>
+                <p>Data-driven stock picks for NSE traders. 18-parameter scoring, live prices, portfolio tracking — all
+                    in one place.</p>
+            </div>
+            <div class="footer-col">
+                <h4>Product</h4>
+                <a href="{{ url_for('pages.index') }}#features">Features</a>
+                <a href="{{ url_for('auth.local_login') }}">Sign in</a>
+            </div>
+            <div class="footer-col">
+                <h4>Company</h4>
+                <a href="{{ url_for('pages.about') }}">About</a>
+            </div>
+            <div class="footer-col">
+                <h4>Resources</h4>
+                <a href="{{ url_for('pages.contact') }}">Support</a>
+                <a href="mailto:sumit.pal8070@gmail.com">Email us</a>
+            </div>
+        </div>
+        <div class="footer-disclaimer">
+            Disclaimer: AI Smart Screener provides technical analysis tools and educational content only. We are not
+            SEBI-registered investment advisors. Nothing on this platform constitutes financial advice. Trading in
+            equities involves substantial risk; past performance does not guarantee future returns. Please do your own
+            research before investing.
+        </div>
+        <div class="footer-bottom">
+            &copy; {{ current_year }} AI Smart Screener. All rights reserved.
+        </div>
+    </footer>
+</body>
+
+</html>

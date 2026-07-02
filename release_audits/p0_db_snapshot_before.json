@@ -1,0 +1,27 @@
+{
+    "timestamp": "2026-06-20T14:37:00.240913",
+    "active_universe_version": "UNIVERSE_v013",
+    "scan_lock": {
+        "id": 1,
+        "scan_id": null,
+        "owner_id": null,
+        "heartbeat": null,
+        "expires_at": null,
+        "acquired_at": null
+    },
+    "current_scan_state": {
+        "id": 1,
+        "scan_id": "scan_manual_1781954278_c8d16e",
+        "mode": "manual",
+        "status": "idle",
+        "phase": "",
+        "start_time": "2026-06-20T16:47:59",
+        "processed_count": 575,
+        "failed_count": 0,
+        "candidate_count": 575,
+        "cancel_requested": 0,
+        "updated_at": "2026-06-20T17:14:13"
+    },
+    "scan_runs_count": 75,
+    "scan_state_transitions_count": 182
+}

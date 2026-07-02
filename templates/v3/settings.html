@@ -1,0 +1,510 @@
+{% extends "_app_base.html" %}
+{% set active_page = "settings" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="v3-page-header">
+    <div class="v3-page-title">Settings</div>
+    <div class="v3-page-subtitle">Appearance, terminology mode, and system health</div>
+</div>
+
+<div class="set-console">
+
+    <!-- ── Appearance & Terminology ─────────────────────────────── -->
+    <section class="set-panel">
+        <div class="set-panel-head">
+            <svg class="set-panel-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <div>
+                <div class="set-panel-title">Interface</div>
+                <div class="set-panel-sub">How much terminology and guidance the app shows you</div>
+            </div>
+        </div>
+
+        <div class="set-rows">
+            <!-- Interface mode -->
+            <div class="set-row">
+                <div class="set-row-label">
+                    <label class="set-label" for="uxModeSegment">Interface mode</label>
+                    <div class="set-desc">Pro shows full technical terminology. Beginner uses plain-language labels.</div>
+                </div>
+                <div class="set-row-control">
+                    <div id="uxModeSegment" class="set-seg" role="group" aria-label="Interface mode">
+                        <button class="mos-seg-btn set-seg-btn" data-mode="pro" onclick="setUXMode('pro')" type="button">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                            Pro
+                        </button>
+                        <button class="mos-seg-btn set-seg-btn" data-mode="beginner" onclick="setUXMode('beginner')" type="button">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                            Beginner
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Learning mode -->
+            <div class="set-row">
+                <div class="set-row-label">
+                    <label class="set-label" for="learningModeSelect">Learning mode</label>
+                    <div class="set-desc">Adds tooltips, term translations, and live risk checks as you work.</div>
+                </div>
+                <div class="set-row-control">
+                    <select id="learningModeSelect" class="set-select" onchange="setLearningMode(this.value)">
+                        <option value="off">Off — no guidance</option>
+                        <option value="basic">Basic — tooltips &amp; translations</option>
+                        <option value="guided">Guided — warnings + risk checks</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="set-note">
+            <div><span class="set-note-key">Pro</span> Full technical terminology.</div>
+            <div><span class="set-note-key">Beginner</span> Simplified labels — Snapshot becomes Trade Plan, Intent becomes Ready Trade.</div>
+            <div><span class="set-note-key">Guided</span> Live risk warnings when you create positions.</div>
+        </div>
+    </section>
+
+    <!-- ── Live Preview ─────────────────────────────────────────── -->
+    <section class="set-panel">
+        <div class="set-panel-head">
+            <svg class="set-panel-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div>
+                <div class="set-panel-title">Live preview</div>
+                <div class="set-panel-sub">How key terms read in the current mode — updates as you change it above</div>
+            </div>
+        </div>
+
+        <div id="previewCard" class="set-preview-grid">
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevCandidate">Candidate</div>
+            </div>
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevSnapshot">ResearchSnapshot</div>
+            </div>
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevIntent">PositionIntent</div>
+            </div>
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevPortfolio">Portfolio</div>
+            </div>
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevReview">Review</div>
+            </div>
+            <div class="set-preview-cell">
+                <div class="set-preview-key">Term</div>
+                <div class="set-preview-val" id="prevResearch">Research</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Terminology Dictionary ───────────────────────────────── -->
+    <section class="set-panel set-panel-wide">
+        <div class="set-panel-head">
+            <svg class="set-panel-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <div>
+                <div class="set-panel-title">Terminology dictionary</div>
+                <div class="set-panel-sub">Full mapping of Pro terms to their Beginner equivalents</div>
+            </div>
+        </div>
+        <div class="set-table-wrap">
+            <table class="set-table" id="termTable">
+                <thead>
+                    <tr>
+                        <th>Pro term</th>
+                        <th>Beginner term</th>
+                    </tr>
+                </thead>
+                <tbody id="termTableBody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ── Subsystem Health ─────────────────────────────────────── -->
+    <section class="set-panel set-panel-wide">
+        <div class="set-panel-head">
+            <svg class="set-panel-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <div>
+                <div class="set-panel-title">Subsystem health</div>
+                <div class="set-panel-sub">Live status and version of each engine</div>
+            </div>
+        </div>
+        <div id="healthGrid" class="set-health-grid"></div>
+    </section>
+
+</div>
+
+<style>
+/* ── Settings console layout ──────────────────────────────────── */
+.set-console {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+.set-panel-wide { grid-column: 1 / -1; }
+
+/* ── Panel (hairline, no shadow) ──────────────────────────────── */
+.set-panel {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+}
+.set-panel-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+.set-panel-icon { flex-shrink: 0; margin-top: 1px; }
+.set-panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.1px;
+}
+.set-panel-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
+/* ── Labeled rows ─────────────────────────────────────────────── */
+.set-rows { display: flex; flex-direction: column; gap: 18px; }
+.set-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+.set-row-label { flex: 1; min-width: 0; }
+.set-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+.set-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+.set-row-control { flex-shrink: 0; }
+
+/* ── Segmented control ────────────────────────────────────────── */
+.set-seg {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.set-seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-muted);
+    transition: color var(--transition), background var(--transition);
+}
+.set-seg-btn + .set-seg-btn { border-left: 1px solid var(--border); }
+.set-seg-btn:hover { color: var(--text-secondary); }
+.set-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Active segment: accent fill, high-contrast label. --on-accent stays #fff in both
+   themes because --accent is a saturated blue in dark and light alike. */
+.set-seg-btn.is-active {
+    background: var(--accent);
+    color: var(--on-accent, #fff);
+}
+.set-seg-btn.is-active:hover { color: var(--on-accent, #fff); }
+
+/* ── Select ───────────────────────────────────────────────────── */
+.set-select {
+    min-width: 240px;
+    height: 36px;
+    padding: 0 32px 0 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    outline: none;
+    transition: border-color var(--transition);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23646D7C' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+.set-select:hover { border-color: var(--border-light); }
+.set-select:focus { border-color: var(--accent); }
+
+/* ── Explanatory note ─────────────────────────────────────────── */
+.set-note {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+}
+.set-note-key {
+    display: inline-block;
+    min-width: 64px;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+/* ── Live preview grid ────────────────────────────────────────── */
+.set-preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.set-preview-cell {
+    padding: 12px 14px;
+    background: var(--surface);
+}
+.set-preview-key {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+.set-preview-val {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* ── Table ────────────────────────────────────────────────────── */
+.set-table-wrap { overflow-x: auto; }
+.set-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.set-table thead th {
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+}
+.set-table tbody tr { border-bottom: 1px solid var(--border); }
+.set-table tbody tr:last-child { border-bottom: none; }
+.set-table tbody tr:hover { background: var(--surface); }
+.set-table td { padding: 9px 12px; }
+.set-table .set-term-pro {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+.set-table .set-term-beg {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* ── Health grid ──────────────────────────────────────────────── */
+.set-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+.set-health-cell {
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+}
+.set-health-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.set-health-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.set-health-bottom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.set-health-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--radius-full);
+    flex-shrink: 0;
+}
+.set-health-status {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.set-health-ver {
+    margin-left: auto;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+/* Tablet & down: single-column console, rows stack, controls go full-width. */
+@media (max-width: 900px) {
+    .set-console { grid-template-columns: 1fr; }
+    .set-row { flex-direction: column; align-items: stretch; }
+    .set-row-control { width: 100%; }
+    .set-seg { display: flex; }
+    .set-seg-btn { flex: 1; justify-content: center; }
+    .set-select { width: 100%; min-width: 0; }
+}
+/* Phone (≤480px): preview + health collapse to one column. */
+@media (max-width: 480px) {
+    .set-preview-grid { grid-template-columns: 1fr; }
+    .set-health-grid { grid-template-columns: 1fr; }
+}
+/* Compact phone (≤390px target): tighten panel padding so dense content
+   still breathes; segmented labels shrink to avoid crowding. */
+@media (max-width: 400px) {
+    .set-console { gap: 12px; }
+    .set-panel { padding: 16px 14px; }
+    .set-panel-head { gap: 8px; padding-bottom: 12px; margin-bottom: 14px; }
+    .set-rows { gap: 16px; }
+    .set-seg-btn { padding: 8px 10px; font-size: 12px; }
+    .set-note { padding: 10px 12px; }
+    .set-note-key { display: block; min-width: 0; margin-bottom: 1px; }
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // Lucide status icons (16px) keyed by health status — no emoji.
+    const STATUS_SVG = {
+        healthy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+        warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        degraded: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+        critical: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+        down: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
+        unknown: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    };
+
+    // ── Segmented control + learning mode ──
+    function setUXMode(mode) {
+        QuantResearch.Terminology.setMode(mode);
+        updateUI();
+    }
+    window.setUXMode = setUXMode;
+
+    function setLearningMode(mode) {
+        QuantResearch.Terminology.setLearningMode(mode);
+    }
+    window.setLearningMode = setLearningMode;
+
+    function updateUI() {
+        const mode = QuantResearch.Terminology.getMode();
+        const lm = QuantResearch.Terminology.getLearningMode();
+
+        // Segment highlight (accent = active). Active state via .is-active class so all
+        // colors resolve from tokens (themeable) — no inline hex.
+        document.querySelectorAll('.mos-seg-btn').forEach(btn => {
+            btn.classList.toggle('is-active', btn.dataset.mode === mode);
+        });
+
+        // Learning mode select
+        document.getElementById('learningModeSelect').value = lm;
+
+        // Preview terms
+        const terms = ['Candidate', 'ResearchSnapshot', 'PositionIntent', 'Portfolio', 'Review', 'Research'];
+        const ids = ['prevCandidate', 'prevSnapshot', 'prevIntent', 'prevPortfolio', 'prevReview', 'prevResearch'];
+        terms.forEach((term, i) => {
+            const el = document.getElementById(ids[i]);
+            if (el) el.textContent = window._t(term, term);
+        });
+    }
+
+    // ── Terminology dictionary ──
+    function renderTermTable() {
+        const dict = QuantResearch.Terminology.DICTIONARY;
+        const tbody = document.getElementById('termTableBody');
+        const seen = new Set();
+        tbody.innerHTML = Object.entries(dict).map(([pro, beginner]) => {
+            if (seen.has(beginner)) return '';
+            seen.add(beginner);
+            return `<tr>
+                <td class="set-term-pro">${pro}</td>
+                <td class="set-term-beg">${beginner}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ── Subsystem health ──
+    function renderHealth() {
+        const health = QuantResearch.SystemRegistry.getHealth();
+        const grid = document.getElementById('healthGrid');
+        const statusColors = {
+            healthy: 'var(--success)', warning: 'var(--warning)',
+            degraded: 'var(--warning)', critical: 'var(--danger)',
+            down: 'var(--danger)', unknown: 'var(--text-muted)'
+        };
+
+        grid.innerHTML = Object.values(health).map(sub => {
+            const color = statusColors[sub.status] || 'var(--text-muted)';
+            const icon = STATUS_SVG[sub.status] || STATUS_SVG.unknown;
+            return `
+            <div class="set-health-cell">
+                <div class="set-health-top">
+                    <span class="set-health-name">${sub.name}</span>
+                    <span style="color:${color};display:inline-flex">${icon}</span>
+                </div>
+                <div class="set-health-bottom">
+                    <span class="set-health-dot" style="background:${color}"></span>
+                    <span class="set-health-status" style="color:${color}">${sub.status}</span>
+                    <span class="set-health-ver">v${sub.version}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Init
+    updateUI();
+    renderTermTable();
+    renderHealth();
+
+    // Listen for mode changes from elsewhere
+    document.addEventListener('mos-ux-mode-changed', updateUI);
+})();
+</script>
+{% endblock %}

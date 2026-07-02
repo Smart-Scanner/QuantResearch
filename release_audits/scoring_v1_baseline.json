@@ -1,0 +1,105 @@
+{
+  "baseline_created": "2026-06-30 08:57:28",
+  "as_of_date": "2026-06-26",
+  "engine_version": "scoring_v1-engine-1.0",
+  "weight_version": "tuned-1.0",
+  "gate_version": "411499e63885",
+  "spec_version": "marketos_scoring_final_spec-locked",
+  "schema_version": "model_version_v1",
+  "config_hash": "404b42395bcb",
+  "engine_git_commit": "269f06f",
+  "universe_size": 2445,
+  "eligible_count": 897,
+  "earnings_coverage_pct": 100.0,
+  "sector_coverage_pct": 91.9,
+  "step4_sector_fallback_spearman": 0.987,
+  "step55_divergence": {
+    "top25_overlap": 3,
+    "scoring_v1_only": 22,
+    "legacy_only": 22,
+    "common_symbols": 624,
+    "spearman": 0.2884,
+    "kendall_tau": 0.1997,
+    "avg_rank_delta": 171.6,
+    "v1_only_top25": [
+      "AEROENTER",
+      "APARINDS",
+      "BLISSGVS",
+      "CEMPRO",
+      "GRINDWELL",
+      "GRWRHITECH",
+      "HFCL",
+      "ICIL",
+      "IDFCFIRSTB",
+      "J&KBANK"
+    ],
+    "legacy_only_top25": [
+      "AARTIPHARM",
+      "ALKYLAMINE",
+      "ARVIND",
+      "AUTOAXLES",
+      "BBOX",
+      "CAPACITE",
+      "CARRARO",
+      "CONFIPET",
+      "COROMANDEL",
+      "GALAXYSURF"
+    ]
+  },
+  "eligible_universe_sha256": "14425e151a3beaaa3486957a57c9dfca95a19e8a77aa29f0c83eaeae5ebb9f89",
+  "earnings_source": "dhan_forecast(primary)->nse->screener",
+  "ui_engine_default": "scoring_v1",
+  "live_flag": "SCORING_V1_LIVE (off until flip)",
+  "step5_controlled_run": {
+    "broker": "paper-only (no real-execution path)",
+    "submitted": 12,
+    "skipped_overextended": 13,
+    "entry_filter": ">8% above 20-DMA",
+    "eligibility": "rank<=25 (hysteresis to top-50)"
+  },
+  "flip": {
+    "flipped_on": "2026-06-30",
+    "two_week_clock_ends": "2026-07-14",
+    "freeze_active": true,
+    "note": "no score/weight/gate/factor changes until clock ends; non-score bug-fixes appended here"
+  },
+  "last_revised": "2026-06-30 19:57:22",
+  "revision_2026_06_30": {
+    "reason": "UI/data fixes + trade-levels recalibration (user-approved during freeze, run <1 day old)",
+    "trade_levels": {
+      "ATR_MULT_STOP": 2.0,
+      "MAX_STOP_PCT": 0.08,
+      "RR_TARGETS": [
+        2.0,
+        3.0,
+        4.0
+      ],
+      "note": "stop now min(2*ATR, 8%) \u2014 was uncapped 2*ATR (~11% on small-caps)"
+    },
+    "additive_display": [
+      "factor_percentiles (0-100 per-factor universe ranks for Thesis Radar)"
+    ],
+    "ui_fixes": [
+      "live WS feed (CMP+1D%)",
+      "legacy-lock merge gated (board+detail)",
+      "stock-detail 500 fix",
+      "outcome stats route",
+      "emoji->Lucide",
+      "narrator-leak CSS",
+      "confidence label",
+      "breadth from live feed"
+    ],
+    "scoring_unchanged": "engine/weights/gates/sector-map + composite scores identical; config_hash/universe_sha unchanged",
+    "current_scan_id": "scan_v1_20260630_114202"
+  },
+  "gate_revision_2026_06_30": {
+    "reason": "user-approved gate change",
+    "median_turnover_cr": 5.0,
+    "asm_policy": "ALL ALLOWED (was reject stage 3/4)",
+    "gsm_policy": "reject (unchanged)",
+    "eligible_before": 715,
+    "eligible_after": 897,
+    "delta": 182,
+    "attribution": "+179 turnover 10->5cr, +3 ASM allowed (ATLANTAELE/MTARTECH/UTLSOLAR)"
+  }
+}

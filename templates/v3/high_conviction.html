@@ -1,0 +1,199 @@
+{% extends "_app_base.html" %}
+{% set active_page = "high_conviction" %}
+{% block title %}High Conviction{% endblock %}
+
+{% block head %}
+<style>
+    .tp-why-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+        margin-bottom: 4px;
+        padding-top: 8px;
+        border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    }
+    .tp-why-tag {
+        font-size: 10px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+        background: rgba(16, 185, 129, 0.08);
+        color: var(--success);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-family: 'Inter', sans-serif;
+        letter-spacing: -0.01em;
+    }
+    .tp-why-tag-check {
+        font-size: 10px;
+        color: var(--success);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="v3-page-header">
+    <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:28px">&#9889;</span>
+        <div>
+            <div class="v3-page-title">High Conviction</div>
+            <div class="v3-page-subtitle">Multi-factor convergence picks with the strongest risk/reward profiles</div>
+        </div>
+    </div>
+</div>
+
+<div id="hcLoading" class="v3-loading-state">
+    <div class="v3-loading-steps">
+        <div class="v3-loading-step active"><span class="v3-loading-step-icon">&#9658;</span> Filtering for high conviction alignment...</div>
+    </div>
+</div>
+
+<div id="hcCount" style="display:none;margin-bottom:16px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace"></div>
+<div id="hcGrid" class="tp-cards-grid" style="display:none"></div>
+<div id="hcEmpty" class="v3-empty-state" style="display:none">
+    <div class="v3-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+    <div class="v3-empty-title">No High Conviction Picks</div>
+    <div class="v3-empty-desc">These appear when earnings, technicals, smart money, and sector alignment all converge on one stock. Check back after the next scan.</div>
+</div>
+
+<script>
+async function loadHC() {
+    try {
+        const resp = await fetch('/api/high-conviction');
+        const data = await resp.json();
+        const results = data.high_conviction || [];
+
+        document.getElementById('hcLoading').style.display = 'none';
+
+        if (!results.length) {
+            document.getElementById('hcEmpty').style.display = 'flex';
+            return;
+        }
+
+        document.getElementById('hcCount').textContent = results.length + ' high conviction picks';
+        document.getElementById('hcCount').style.display = 'block';
+        document.getElementById('hcGrid').style.display = 'grid';
+
+        // RE-3 P2: calcEntryRR removed — R:R is the server (Recommendation Object) risk_reward.
+
+        const THESIS_RULES = [
+            {
+                reason: "Strong Earnings Momentum",
+                source: "earnings_momentum_score",
+                evaluate: (s) => (s.earnings_momentum_score || 0) >= 10 || (s.earnings_momentum_100 || 0) > 70
+            },
+            {
+                reason: "Smart Money Accumulation",
+                source: "smart_money_score",
+                evaluate: (s) => (s.smart_money_score || 0) >= 7 || (s.smart_money_100 || 0) > 70
+            },
+            {
+                reason: "Sector Leadership",
+                source: "sector_rotation_score",
+                evaluate: (s) => (s.sector_rotation_score || 0) >= 75
+            },
+            {
+                reason: "Weekly Uptrend",
+                source: "weekly_trend",
+                evaluate: (s) => s.weekly_trend && String(s.weekly_trend).toLowerCase().includes('bull')
+            },
+            {
+                reason: "Volume Expansion",
+                source: "volume_ratio",
+                evaluate: (s) => (s.volume_ratio || 0) >= 1.5
+            },
+            {
+                reason: "Breakout Pattern",
+                source: "is_breakout",
+                evaluate: (s) => !!s.is_breakout
+            }
+        ];
+
+        function getWhyReasons(s) {
+            const reasons = [];
+            
+            // 1. HC Reasons (dynamic, highest priority)
+            if (s.hc_reasons) {
+                if (Array.isArray(s.hc_reasons)) {
+                    reasons.push(...s.hc_reasons);
+                } else if (typeof s.hc_reasons === 'string' && s.hc_reasons.trim()) {
+                    reasons.push(s.hc_reasons);
+                }
+            }
+            
+            // 2. Evaluate rules mapping
+            for (const rule of THESIS_RULES) {
+                if (rule.evaluate(s)) {
+                    reasons.push(rule.reason);
+                }
+            }
+            
+            return [...new Set(reasons)].slice(0, 3);
+        }
+
+        function renderWhyTags(s) {
+            const reasons = getWhyReasons(s);
+            if (!reasons || reasons.length === 0) return '';
+            return `<div class="tp-why-container">
+                ${reasons.map(r => `<span class="tp-why-tag"><span class="tp-why-tag-check">✓</span> ${r}</span>`).join('')}
+            </div>`;
+        }
+
+        document.getElementById('hcGrid').innerHTML = results.map((s, i) => {
+            const conf = calcConf(s);
+            const cl = conf >= 80 ? 'high' : conf >= 50 ? 'medium' : 'low';
+            const clLabel = conf >= 80 ? 'HIGH' : conf >= 50 ? 'MED' : 'LOW';
+            const sc = (s.score||0) >= 80 ? 'excellent' : (s.score||0) >= 65 ? 'good' : (s.score||0) >= 50 ? 'average' : 'poor';
+            // RE-3 P2: server (Recommendation Object) risk_reward only — no client-side calc.
+            const rr = (s.risk_reward||0) > 0 ? '1:' + (s.risk_reward||0).toFixed(1) : '--';
+            const target = s.target_price ? '\u20b9' + s.target_price.toLocaleString('en-IN', {maximumFractionDigits:0}) : '\u2014';
+            const sl = s.stop_loss ? '\u20b9' + s.stop_loss.toLocaleString('en-IN', {maximumFractionDigits:0}) : '\u2014';
+
+            // Signal badges
+            const badges = [];
+            const e100 = Math.min(100, ((s.earnings_momentum_score||0)/15)*100);
+            const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score||0)/10)*100);
+            if (e100 > 70) badges.push('<span class="tp-opp-badge earnings">EARNINGS</span>');
+            if (sm100 > 70) badges.push('<span class="tp-opp-badge smart-money">SMART MONEY</span>');
+            if (s.is_breakout) badges.push('<span class="tp-opp-badge breakout">BREAKOUT</span>');
+
+            return `<div class="tp-card" onclick="window.location.href='/symbol/' + encodeURIComponent(('${s.symbol}' || '').toUpperCase())">
+                <div class="tp-card-top">
+                    <div class="tp-card-info">
+                        <div class="tp-card-rank" style="color:var(--accent-cyan)">#${i+1} HC</div>
+                        <div class="tp-card-symbol">${s.symbol}</div>
+                        <div class="tp-card-sector">${s.sector||'Other'}</div>
+                        <div class="tp-card-conf"><span class="tp-conf ${cl}"><span class="dot"></span> ${conf}% ${clLabel}</span></div>
+                    </div>
+                    <div class="tp-score-arc ${sc}" style="--pct:${s.score}"><div class="inner">${s.score}</div></div>
+                </div>
+                <div class="tp-card-badges">${badges.join('')}</div>
+                ${renderWhyTags(s)}
+                <div class="tp-card-metrics">
+                    <div class="tp-card-metric"><div class="tp-card-metric-label">R:R</div><div class="tp-card-metric-value">${rr}</div></div>
+                    <div class="tp-card-metric"><div class="tp-card-metric-label">Target</div><div class="tp-card-metric-value" style="color:var(--success)">${target}</div></div>
+                    <div class="tp-card-metric"><div class="tp-card-metric-label">Stop</div><div class="tp-card-metric-value" style="color:var(--danger)">${sl}</div></div>
+                </div>
+                <div class="tp-card-actions">
+                    <button class="tp-btn-analyze" onclick="event.stopPropagation(); window.location.href='/symbol/' + encodeURIComponent(('${s.symbol}' || '').toUpperCase())">Analyze</button>
+                </div>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        document.getElementById('hcLoading').innerHTML = '<div style="color:var(--danger);text-align:center">Failed to load</div>';
+    }
+}
+
+function calcConf(s) {
+    const t100 = Math.min(100, ((s.technical_score||0)/30)*100);
+    const e100 = Math.min(100, ((s.earnings_momentum_score||0)/15)*100);
+    const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score||0)/10)*100);
+    const f100 = Math.min(100, ((s.fundamental_score||0)/10)*100);
+    return Math.round(Math.min(100, Math.max(0, t100*0.30 + e100*0.25 + sm100*0.25 + f100*0.20)));
+}
+
+loadHC();
+</script>
+{% endblock %}

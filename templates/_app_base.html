@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QuantResearch{% endblock %} | Quantitative Research Terminal</title>
+    <script src="{{ url_for('static', filename='js/quantresearch-core.js') }}?v=r4"></script>
+    <meta name="description" content="QuantResearch — Institutional Quantitative Research Terminal for Discovery, Research, Portfolio Management, and Analytics">
+    <link rel="manifest" href="/static/manifest.webmanifest">
+    <meta name="theme-color" content="#0A0E14">
+    <link rel="apple-touch-icon" href="/static/icons/icon.svg">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/v3.css') }}?v=r5">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    {% block head %}{% endblock %}
+    <script>
+        // Theme authority — single 'theme' key, dark-first
+        (function () {
+            var legacy = QuantResearch.SystemRepository.getPreference('v3_theme', null);
+            if (legacy) {
+                if (!QuantResearch.SystemRepository.getPreference('theme', null)) QuantResearch.SystemRepository.setPreference('theme', legacy);
+                QuantResearch.SystemRepository.setPreference('v3_theme', null);
+            }
+            var t = QuantResearch.SystemRepository.getPreference('theme', null) || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <script>
+        // Phase 5.1.9: Global Translation Helper
+        window._t = function(key, defaultVal) {
+            return QuantResearch.Terminology.translate(key, defaultVal);
+        };
+    </script>
+    <style>
+        /* Phase 5.1.9: Glossary Tooltip Styles */
+        .mos-glossary-trigger {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 50%;
+            background: var(--surface-2, rgba(255,255,255,0.06));
+            color: var(--text-muted); font-size: 10px; font-weight: 700;
+            cursor: help; margin-left: 4px; position: relative;
+            border: 1px solid var(--border, rgba(255,255,255,0.08));
+            transition: all 0.2s ease;
+        }
+        .mos-glossary-trigger:hover {
+            background: var(--accent, #6366f1); color: #fff;
+            border-color: var(--accent, #6366f1);
+        }
+        .mos-glossary-popup {
+            display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+            transform: translateX(-50%); background: rgba(15, 20, 35, 0.92);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; padding: 10px 14px; font-size: 12px;
+            color: var(--text-secondary); white-space: normal; max-width: 280px;
+            line-height: 1.5; font-weight: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05); z-index: 9999;
+            pointer-events: none; animation: glossaryFadeIn 0.15s ease;
+        }
+        @keyframes glossaryFadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        .mos-glossary-trigger:hover .mos-glossary-popup { display: block; }
+        .mos-glossary-popup::after {
+            content: ''; position: absolute; top: 100%; left: 50%;
+            transform: translateX(-50%); border: 5px solid transparent;
+            border-top-color: rgba(255,255,255,0.1);
+        }
+
+        /* QuantResearch shell tokens (institutional dark) */
+        .mos-sidebar { background: var(--surface, #111720); border-right: 1px solid var(--border-hairline, #1E2630); }
+        .mos-header { background: var(--surface, #111720); border-bottom: 1px solid var(--border-hairline, #1E2630); }
+        .mos-nav-item.active {
+            background: var(--surface-raised, #161D28);
+            color: var(--accent, #4C8DFF);
+        }
+        .mos-nav-item.active::before { background: var(--accent, #4C8DFF) !important; }
+
+        /* Mobile nav drawer (hamburger) under ~820px */
+        .mos-drawer-toggle { display: none; }
+        .mos-sidebar-overlay { display: none; }
+        @media (max-width: 820px) {
+            .mos-drawer-toggle {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 34px; height: 34px; flex-shrink: 0; margin-right: 8px;
+                background: transparent; border: 1px solid var(--border-hairline, #1E2630);
+                border-radius: 6px; color: var(--text-secondary, #9AA3B2); cursor: pointer;
+                transition: border-color 120ms cubic-bezier(.2,0,0,1), color 120ms cubic-bezier(.2,0,0,1);
+            }
+            .mos-drawer-toggle:hover { border-color: var(--border-strong, #2A333F); color: var(--text-primary, #E7EBF2); }
+            /* Force the sidebar to behave as an off-canvas drawer, overriding display:none from v3.css */
+            .mos-sidebar {
+                display: flex !important; position: fixed; top: 0; left: 0; bottom: 0; z-index: 1200;
+                width: 260px; max-width: 82vw;
+                transform: translateX(-100%);
+                transition: transform 140ms cubic-bezier(.2,0,0,1);
+            }
+            .mos-sidebar.drawer-open { transform: translateX(0); }
+            .mos-sidebar-overlay {
+                display: block; position: fixed; inset: 0; z-index: 1100;
+                background: rgba(10,14,20,0.6);
+                opacity: 0; visibility: hidden;
+                transition: opacity 140ms cubic-bezier(.2,0,0,1), visibility 140ms cubic-bezier(.2,0,0,1);
+            }
+            .mos-sidebar-overlay.open { opacity: 1; visibility: visible; }
+        }
+
+        /* ═══ BOTTOM STATUS STRIP (living tape · freshness · session clock) ═══
+           Sibling of .mos-content inside the flex column .mos-main-area, so it
+           pins to the bottom of the workspace with NO fixed positioning and NO
+           overlap. Chrome is quiet; only DATA carries color (--pos/--neg/--warn). */
+        .qr-statusbar {
+            flex-shrink: 0; display: flex; align-items: stretch;
+            height: 30px; min-height: 30px;
+            border-top: 1px solid var(--border-hairline, #1E2630);
+            background: var(--surface, #111720);
+            font-size: 11px; line-height: 16px;
+            color: var(--text-secondary, #9AA3B2);
+            font-variant-numeric: tabular-nums;
+            z-index: 40;
+        }
+        .qr-statusbar-seg {
+            display: flex; align-items: center; gap: 6px;
+            padding: 0 12px; white-space: nowrap; flex-shrink: 0;
+        }
+        .qr-statusbar-seg + .qr-statusbar-seg { border-left: 1px solid var(--border-hairline, #1E2630); }
+        .qr-statusbar-label { color: var(--text-tertiary, #646D7C); font-size: 10px; letter-spacing: .4px; text-transform: uppercase; }
+        .qr-statusbar-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-primary, #E7EBF2); }
+
+        /* ── Session-aware clock ── */
+        .qr-session-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary, #646D7C); flex-shrink: 0; }
+        .qr-session-dot.open { background: var(--pos, #2FB67A); }
+        .qr-session-dot.pre, .qr-session-dot.post { background: var(--warn, #E8A33D); }
+        .qr-session-dot.lunch { background: var(--accent, #4C8DFF); }
+        .qr-session-dot.closed { background: var(--text-tertiary, #646D7C); }
+        .qr-session-name { color: var(--text-primary, #E7EBF2); font-weight: 500; }
+        .qr-session-count { color: var(--text-secondary, #9AA3B2); }
+
+        /* ── Data-freshness pill ── */
+        .qr-fresh-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 2px 8px; border-radius: 4px;
+            border: 1px solid var(--border-hairline, #1E2630);
+            background: transparent; color: var(--text-secondary, #9AA3B2);
+            transition: color 130ms cubic-bezier(.2,0,0,1), border-color 130ms cubic-bezier(.2,0,0,1);
+        }
+        .qr-fresh-pill.stale { color: var(--warn, #E8A33D); border-color: var(--warn, #E8A33D); }
+        .qr-fresh-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--pos, #2FB67A); }
+        .qr-fresh-pill.stale .qr-fresh-dot { background: var(--warn, #E8A33D); }
+
+        /* ── Per-engine scan-status chip (visible only while scanning) ── */
+        .qr-scan-chip {
+            display: none; align-items: center; gap: 6px;
+            padding: 2px 8px; border-radius: 4px;
+            border: 1px solid var(--accent, #4C8DFF);
+            color: var(--accent, #4C8DFF); background: transparent;
+        }
+        .qr-scan-chip.active { display: inline-flex; }
+        .qr-scan-chip .qr-scan-spin {
+            width: 9px; height: 9px; border-radius: 50%;
+            border: 1.5px solid var(--border-strong, #2A333F);
+            border-top-color: var(--accent, #4C8DFF);
+            animation: qrScanSpin 800ms linear infinite;
+        }
+        @keyframes qrScanSpin { to { transform: rotate(360deg); } }
+        .qr-scan-chip-engine { font-family: 'JetBrains Mono', ui-monospace, monospace; text-transform: uppercase; letter-spacing: .4px; }
+
+        /* ── Living tape ribbon ── */
+        .qr-tape {
+            flex: 1 1 auto; min-width: 0; overflow: hidden;
+            display: flex; align-items: center; position: relative;
+            border-left: 1px solid var(--border-hairline, #1E2630);
+        }
+        .qr-tape-track {
+            display: inline-flex; align-items: center; gap: 22px;
+            white-space: nowrap; padding-left: 22px;
+            will-change: transform;
+            animation: qrTapeScroll 60s linear infinite;
+        }
+        .qr-tape:hover .qr-tape-track { animation-play-state: paused; }
+        .qr-tape-item {
+            display: inline-flex; align-items: center; gap: 6px;
+            cursor: pointer; color: var(--text-secondary, #9AA3B2);
+        }
+        .qr-tape-sym { color: var(--text-primary, #E7EBF2); font-weight: 500; letter-spacing: .2px; }
+        .qr-tape-val { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text-secondary, #9AA3B2); }
+        .qr-tape-chg { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .qr-tape-chg.pos { color: var(--pos, #2FB67A); }
+        .qr-tape-chg.neg { color: var(--neg, #E5484D); }
+        .qr-tape-empty { padding-left: 22px; color: var(--text-tertiary, #646D7C); font-size: 11px; }
+        @keyframes qrTapeScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        @media (prefers-reduced-motion: reduce) {
+            .qr-tape-track { animation: none; }
+            .qr-scan-chip .qr-scan-spin { animation: none; }
+        }
+
+        /* Mobile: keep freshness + session clock, drop the tape; clear the fixed mobile bottom nav. */
+        @media (max-width: 640px) {
+            .qr-statusbar { margin-bottom: var(--mobile-nav-height, 64px); }
+            .qr-tape { display: none; }
+            .qr-statusbar-seg { padding: 0 10px; }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="mos-app">
+
+        <!-- ═══ SIDEBAR ═══════════════════════════════════════════════ -->
+        <aside class="mos-sidebar" id="mosSidebar">
+            <div class="mos-sidebar-header">
+                <div class="mos-sidebar-logo">Q</div>
+                <div class="mos-sidebar-brand">
+                    <h1>QuantResearch</h1>
+                    <p>Research Terminal</p>
+                </div>
+            </div>
+
+            <nav class="mos-sidebar-nav" id="mosSidebarNav">
+                <!-- HOME -->
+                <div class="mos-nav-section">
+                    <a href="/mission-control" class="mos-nav-item {% if active_page == 'mission_control' %}active{% endif %}" id="nav-home">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                            <rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+                        </svg>
+                        <span>Mission Control</span>
+                    </a>
+                </div>
+
+                <!-- MARKETS -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Markets</div>
+                    <a href="/market" class="mos-nav-item {% if active_page == 'market_intel' %}active{% endif %}" id="nav-market">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        </svg>
+                        <span>Market Overview</span>
+                    </a>
+                </div>
+
+                <!-- DISCOVERY -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Discovery</div>
+                    <a href="/discovery" class="mos-nav-item {% if active_page == 'discovery' %}active{% endif %}" id="nav-discovery">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            <line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+                        </svg>
+                        <span>Discovery Center</span>
+                    </a>
+                    <a href="/top-picks" class="mos-nav-item {% if active_page == 'top_picks' %}active{% endif %}" id="nav-top-picks">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                        <span>Top Picks</span>
+                    </a>
+                    <a href="/breakouts" class="mos-nav-item {% if active_page == 'breakouts' %}active{% endif %}" id="nav-breakouts">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" />
+                        </svg>
+                        <span>Breakouts</span>
+                    </a>
+                </div>
+
+                <!-- WATCHLISTS -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Watchlists</div>
+                    <a href="/watchlist" class="mos-nav-item {% if active_page == 'watchlist' %}active{% endif %}" id="nav-watchlist">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <span>My Watchlists</span>
+                    </a>
+                </div>
+
+                <!-- RESEARCH -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Research</div>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-research-terminal">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+                        </svg>
+                        <span>Research Terminal</span>
+                    </a>
+                </div>
+
+                <!-- PORTFOLIO & RISK -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Portfolio & Risk</div>
+                    <a href="/portfolio" class="mos-nav-item {% if active_page == 'portfolio' %}active{% endif %}" id="nav-portfolio">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                        </svg>
+                        <span>Portfolio Center</span>
+                    </a>
+                    <a href="/paper-trades-view" class="mos-nav-item {% if active_page == 'paper_trades' %}active{% endif %}" id="nav-paper-trades">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+                        </svg>
+                        <span>Paper Trades</span>
+                    </a>
+                </div>
+
+                <!-- EXECUTION -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Execution</div>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-orders">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                        </svg>
+                        <span>Orders</span>
+                    </a>
+                </div>
+
+                <!-- ANALYTICS -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Analytics</div>
+                    <a href="/outcome" class="mos-nav-item {% if active_page == 'outcome' %}active{% endif %}" id="nav-outcome">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 3v18h18" /><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" />
+                        </svg>
+                        <span>Performance</span>
+                    </a>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-journal">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                        </svg>
+                        <span>Trade Journal</span>
+                    </a>
+                </div>
+
+                <!-- ALERTS -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Alerts</div>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-alerts">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        <span>Alert Rules</span>
+                    </a>
+                </div>
+
+                <!-- GOVERNANCE -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Governance</div>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-governance">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                        <span>Audit Trail</span>
+                    </a>
+                </div>
+
+                <!-- AUTOMATION -->
+                <div class="mos-nav-section">
+                    <div class="mos-nav-label">Automation</div>
+                    <a href="#" class="mos-nav-item mos-nav-future" id="nav-automation">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
+                        </svg>
+                        <span>Automation</span>
+                    </a>
+                </div>
+
+                <!-- SETTINGS -->
+                <div class="mos-nav-section">
+                    <a href="/settings" class="mos-nav-item {% if active_page == 'settings' %}active{% endif %}" id="nav-settings">
+                        <svg class="mos-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                        </svg>
+                        <span>Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="mos-sidebar-footer">
+                <button class="mos-sidebar-toggle" onclick="toggleSidebar()" title="Toggle sidebar" id="sidebarToggle">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" />
+                    </svg>
+                </button>
+                <button class="mos-sidebar-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Theme" id="themeToggle" style="margin-left:4px">
+                    <!-- Dual icons; CSS shows the right one per [data-theme] so both theme buttons stay in sync. #themeIcon kept for compatibility. -->
+                    <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon">
+                        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                    </svg>
+                </button>
+                <script>
+                    // Consolidated theme behavior: toggle [data-theme] + persist; CSS drives icons.
+                    // Defined globally (toggleDashTheme) further down; alias here so both buttons share one path.
+                    function toggleTheme() {
+                        if (typeof toggleDashTheme === 'function') { toggleDashTheme(); return; }
+                        var current = document.documentElement.getAttribute('data-theme') || 'dark';
+                        var next = current === 'dark' ? 'light' : 'dark';
+                        document.documentElement.setAttribute('data-theme', next);
+                        QuantResearch.SystemRepository.setPreference('theme', next);
+                    }
+                </script>
+                <div class="mos-user-info">
+                    <div class="mos-user-name">{{ user.name if user else 'User' }}</div>
+                    <div class="mos-user-role">{{ 'Admin' if is_admin else 'Local Admin' }}</div>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="mos-logout-btn" title="Sign out" id="btnLogout">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Mobile nav drawer overlay (under ~820px) -->
+        <div class="mos-sidebar-overlay" id="mosSidebarOverlay" onclick="closeMobileDrawer()"></div>
+
+        <!-- ═══ MAIN AREA ═════════════════════════════════════════════ -->
+        <div class="mos-main-area">
+
+            <!-- ── Command Center Header ──────────────────────────── -->
+            <header class="mos-header" id="mosHeader">
+                <button class="mos-drawer-toggle" id="mosDrawerToggle" onclick="toggleMobileDrawer()" aria-label="Open navigation menu" title="Menu">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </button>
+                <div class="mos-header-status">
+                    <div class="mos-status-pill live" id="marketStatusPill">
+                        <span class="mos-status-dot"></span>
+                        <span id="marketStatusText">LOADING</span>
+                    </div>
+                    <!-- Data-driven engine switcher: segments injected at runtime from /api/engines.
+                         Flips the per-client view engine (localStorage) only; never touches the server default. -->
+                    <div class="qr-engine-switch" id="qrEngineSwitch" role="group" aria-label="Scoring engine"></div>
+                </div>
+
+                <div class="mos-header-meta" id="headerMeta">
+                    <div class="mos-header-meta-item">
+                        <span class="mos-header-meta-label">Scan</span>
+                        <span class="mos-header-meta-value" id="headerLastScan">—</span>
+                    </div>
+                    <div class="mos-header-meta-item">
+                        <span class="mos-header-meta-label">Regime</span>
+                        <span class="mos-regime-badge sideways" id="headerRegime">—</span>
+                    </div>
+                    <div class="mos-header-meta-item">
+                        <span class="mos-header-meta-label">Breadth</span>
+                        <span class="mos-header-meta-value" id="headerBreadth">—</span>
+                        <!-- Tiny breadth donut, fed by adv/dec ratio in updateCommandCenter; hidden until data present -->
+                        <svg class="qr-sparkline qr-breadth-donut" id="headerBreadthDonut" viewBox="0 0 24 24" width="18" height="18" style="display:none" aria-hidden="true">
+                            <circle class="qr-breadth-donut-track" cx="12" cy="12" r="9" fill="none" stroke="var(--border-strong, #2A333F)" stroke-width="3"></circle>
+                            <circle class="qr-breadth-donut-arc" id="headerBreadthDonutArc" cx="12" cy="12" r="9" fill="none" stroke="var(--pos, #2FB67A)" stroke-width="3" stroke-linecap="round" stroke-dasharray="56.5 56.5" stroke-dashoffset="56.5" transform="rotate(-90 12 12)"></circle>
+                        </svg>
+                    </div>
+                    <div class="mos-header-meta-item">
+                        <span class="mos-header-meta-label">Leading</span>
+                        <span class="mos-header-meta-value" id="headerLeadingSector">—</span>
+                        <!-- Tiny index sparkline, fed by breadth-ratio history in updateCommandCenter; hidden until data present -->
+                        <svg class="qr-sparkline qr-index-spark" id="headerIndexSpark" viewBox="0 0 48 16" width="48" height="16" preserveAspectRatio="none" style="display:none" aria-hidden="true">
+                            <polyline class="qr-index-spark-line" id="headerIndexSparkLine" points="" fill="none" stroke="var(--accent, #4C8DFF)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Command Palette Trigger -->
+                <div class="mos-search-container" id="cmdTrigger" onclick="openCommandPalette()">
+                    <svg class="mos-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <div class="mos-search-placeholder">Search symbols, commands...</div>
+                    <div class="mos-search-kbd"><kbd>Ctrl</kbd><kbd>K</kbd></div>
+                </div>
+
+                <div class="mos-header-actions">
+                    <!-- Notification Bell -->
+                    <button class="mos-action-btn" onclick="toggleNotifications()" id="btnNotifications" title="Notifications">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        <span class="mos-notif-dot" id="notifDot" style="display:none"></span>
+                    </button>
+                    <button class="mos-action-btn" onclick="toggleDashTheme()" id="btnTheme" title="Toggle theme">
+                        <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+                        </svg>
+                        <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                    </button>
+                    <button class="mos-action-btn" onclick="runScan()" id="btnScan" title="Run Scan">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                        </svg>
+                        Run Scan
+                    </button>
+                    <button class="mos-action-btn" onclick="refreshData()" id="btnRefresh" title="Refresh Data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="1 4 1 10 7 10" /><polyline points="23 20 23 14 17 14" />
+                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                        </svg>
+                    </button>
+                    <!-- Copilot Toggle -->
+                    <button class="mos-action-btn mos-copilot-toggle" onclick="toggleCopilot()" id="btnCopilot" title="Research Copilot">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.93" />
+                            <path d="M8.56 5.57A4 4 0 0 1 12 2" />
+                            <path d="M17 10H7c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2z" />
+                            <line x1="10" y1="14" x2="10" y2="16" /><line x1="14" y1="14" x2="14" y2="16" />
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- ── Page Content ───────────────────────────────────── -->
+            <main class="mos-content" id="mosContent">
+                <!-- Ambient decorative background layer (radial glow + dotted grid); styled by CSS agent, both themes. -->
+                <div class="qr-ambient" id="qrAmbient" aria-hidden="true"></div>
+                {% block content %}{% endblock %}
+            </main>
+
+            <!-- ── Bottom Status Strip: living tape · scan chip · freshness · session clock ── -->
+            <footer class="qr-statusbar" id="qrStatusbar" aria-label="Market status">
+                <div class="qr-statusbar-seg" id="qrSessionSeg" title="Market session (IST)">
+                    <span class="qr-session-dot closed" id="qrSessionDot"></span>
+                    <span class="qr-session-name" id="qrSessionName">—</span>
+                    <span class="qr-session-count qr-statusbar-mono" id="qrSessionCount"></span>
+                </div>
+                <div class="qr-statusbar-seg">
+                    <span class="qr-fresh-pill" id="qrFreshPill" title="Data freshness">
+                        <span class="qr-fresh-dot"></span>
+                        <span class="qr-statusbar-mono" id="qrFreshText">as of —</span>
+                    </span>
+                    <span class="qr-scan-chip" id="qrScanChip" title="Scan in progress">
+                        <span class="qr-scan-spin"></span>
+                        <span class="qr-scan-chip-engine" id="qrScanChipEngine">SCAN</span>
+                        <span class="qr-statusbar-mono" id="qrScanChipProgress"></span>
+                    </span>
+                </div>
+                <div class="qr-tape" id="qrTape" aria-label="Live tape">
+                    <div class="qr-tape-empty" id="qrTapeEmpty">Awaiting live prices…</div>
+                    <div class="qr-tape-track" id="qrTapeTrack" style="display:none"></div>
+                </div>
+            </footer>
+        </div>
+
+        <!-- ═══ COPILOT PANEL ═══════════════════════════════════════ -->
+        <aside class="mos-copilot-panel" id="mosCopilotPanel">
+            <div class="mos-copilot-header">
+                <div class="mos-copilot-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.93" />
+                        <path d="M17 10H7c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2z" />
+                    </svg>
+                    Research Copilot
+                </div>
+                <span class="mos-coming-soon-tag">Coming Soon</span>
+                <button class="mos-copilot-close" onclick="toggleCopilot()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mos-copilot-body">
+                <div class="mos-copilot-placeholder">
+                    <div class="mos-copilot-placeholder-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.93" />
+                            <path d="M17 10H7c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2z" />
+                            <line x1="10" y1="14" x2="10" y2="16" /><line x1="14" y1="14" x2="14" y2="16" />
+                        </svg>
+                    </div>
+                    <h3>Research Assistant</h3>
+                    <p>Summarize theses, explain scores, compare symbols, analyze portfolio risk, and surface recurring trading mistakes.</p>
+                    <div class="mos-copilot-examples">
+                        <div class="mos-copilot-example">"Why is RELIANCE HC?"</div>
+                        <div class="mos-copilot-example">"Compare INFY vs TCS"</div>
+                        <div class="mos-copilot-example">"Summarize my portfolio risk"</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══ NOTIFICATION DRAWER ════════════════════════════════════ -->
+        <div class="mos-notif-overlay" id="notifOverlay" onclick="toggleNotifications()"></div>
+        <aside class="mos-notif-drawer" id="notifDrawer">
+            <div class="mos-notif-drawer-header">
+                <h3>Notifications</h3>
+                <button class="mos-notif-close" onclick="toggleNotifications()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mos-notif-body" id="notifBody">
+                <div class="mos-notif-empty">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    <p>No new notifications</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ═══ COMMAND PALETTE ═════════════════════════════════════════ -->
+        <div class="mos-cmd-overlay" id="cmdOverlay" onclick="closeCommandPalette()"></div>
+        <div class="mos-cmd-palette" id="cmdPalette">
+            <div class="mos-cmd-input-wrap">
+                <svg class="mos-cmd-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" class="mos-cmd-input" id="cmdInput" placeholder="Search symbols, jump to pages, run commands..." autocomplete="off">
+                <kbd class="mos-cmd-esc">ESC</kbd>
+            </div>
+            <div class="mos-cmd-results" id="cmdResults">
+                <div class="mos-cmd-group">
+                    <div class="mos-cmd-group-label">Quick Actions</div>
+                    <div class="mos-cmd-item" data-action="navigate" data-target="/" onclick="cmdNavigate('/')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                        <span>Go to Mission Control</span>
+                        <kbd>Home</kbd>
+                    </div>
+                    <div class="mos-cmd-item" data-action="navigate" data-target="/top-picks" onclick="cmdNavigate('/top-picks')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                        <span>Open Top Picks</span>
+                    </div>
+                    <div class="mos-cmd-item" data-action="navigate" data-target="/hc" onclick="cmdNavigate('/hc')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                        <span>Show High Conviction</span>
+                    </div>
+                    <div class="mos-cmd-item" data-action="navigate" data-target="/portfolio" onclick="cmdNavigate('/portfolio')">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                        <span>Open Portfolio</span>
+                    </div>
+                </div>
+                <div class="mos-cmd-group" id="cmdSymbolResults" style="display:none">
+                    <div class="mos-cmd-group-label">Symbols</div>
+                </div>
+            </div>
+            <div class="mos-cmd-footer">
+                <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+                <span><kbd>Enter</kbd> Select</span>
+                <span><kbd>Esc</kbd> Close</span>
+            </div>
+        </div>
+
+        <!-- ═══ STOCK DRAWER ══════════════════════════════════════════ -->
+        <div class="v3-drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+        <div class="v3-drawer" id="stockDrawer">
+            <div class="v3-drawer-header">
+                <div style="flex:1">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div style="font-size:22px;font-weight:900;letter-spacing:-0.5px" id="drawerSymbol">&#8212;</div>
+                        <button class="drawer-star-btn" id="drawerStarBtn" onclick="toggleDrawerWatchlist()" title="Add to Watchlist">&#9734;</button>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px" id="drawerSector">&#8212;</div>
+                    <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+                        <span style="font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text-primary)" id="drawerPrice">&#8212;</span>
+                        <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace" id="drawerChange"></span>
+                    </div>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:8px">
+                    <div class="drawer-export-wrap">
+                        <button class="drawer-export-btn" onclick="toggleExportMenu()" title="Export Research">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                        </button>
+                        <div class="drawer-export-menu" id="exportMenu">
+                            <button onclick="copyThesis()">&#128203; Copy Thesis</button>
+                            <button onclick="downloadMarkdown()">&#128196; Markdown</button>
+                        </div>
+                    </div>
+                    <button class="v3-drawer-close" onclick="closeDrawer()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div id="drawerMeta" class="drawer-meta-row"></div>
+            <!-- Thesis Radar + confidence/health micro-bars (populated in openDrawerForSymbol from the fetched stock payload) -->
+            <div class="qr-radar" id="drawerRadar" style="display:none"></div>
+            <div class="v3-drawer-body" id="drawerBody">
+                <!-- Drawer content loaded dynamically -->
+            </div>
+        </div>
+
+        <!-- ═══ MOBILE BOTTOM NAV ═════════════════════════════════════ -->
+        <nav class="mos-mobile-nav">
+            <div class="mos-mobile-nav-inner">
+                <a href="/" class="mos-mobile-nav-item {% if active_page == 'dashboard' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                    Home
+                </a>
+                <a href="/top-picks" class="mos-mobile-nav-item {% if active_page == 'top_picks' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                    Discover
+                </a>
+                <a href="/portfolio" class="mos-mobile-nav-item {% if active_page == 'portfolio' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                    Portfolio
+                </a>
+                <a href="/outcome" class="mos-mobile-nav-item {% if active_page == 'outcome' %}active{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18" /><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" /></svg>
+                    Analytics
+                </a>
+                <a href="#" class="mos-mobile-nav-item" onclick="openCommandPalette(); return false;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    Search
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- ═══ GLOBAL JS ═════════════════════════════════════════════════ -->
+    <script>
+        // ── Sidebar Toggle ──────────────────────────────────────────────
+        function toggleSidebar() {
+            document.getElementById('mosSidebar').classList.toggle('collapsed');
+            QuantResearch.SystemRepository.setPreference('mos_sidebar_collapsed', document.getElementById('mosSidebar').classList.contains('collapsed'));
+        }
+        if (QuantResearch.SystemRepository.getPreference('mos_sidebar_collapsed', null) === 'true') {
+            document.getElementById('mosSidebar').classList.add('collapsed');
+        }
+
+        // ── Mobile Nav Drawer (hamburger, <=820px) ──────────────────────
+        function toggleMobileDrawer() {
+            document.getElementById('mosSidebar').classList.toggle('drawer-open');
+            document.getElementById('mosSidebarOverlay').classList.toggle('open');
+        }
+        function closeMobileDrawer() {
+            document.getElementById('mosSidebar').classList.remove('drawer-open');
+            document.getElementById('mosSidebarOverlay').classList.remove('open');
+        }
+        // Close the drawer after navigating via a nav link
+        document.getElementById('mosSidebarNav').addEventListener('click', function (e) {
+            if (e.target.closest('.mos-nav-item')) closeMobileDrawer();
+        });
+
+        // ── Theme Toggle ────────────────────────────────────────────────
+        function toggleDashTheme() {
+            var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+            var next = cur === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            QuantResearch.SystemRepository.setPreference('theme', next);
+        }
+
+        // ── Research Copilot Panel ──────────────────────────────────────
+        function toggleCopilot() {
+            const panel = document.getElementById('mosCopilotPanel');
+            panel.classList.toggle('open');
+            QuantResearch.SystemRepository.setPreference('mos_copilot_open', panel.classList.contains('open'));
+        }
+        // Restore copilot state
+        if (QuantResearch.SystemRepository.getPreference('mos_copilot_open', null) === 'true') {
+            document.getElementById('mosCopilotPanel').classList.add('open');
+        }
+
+        // ── Notification Drawer ─────────────────────────────────────────
+        function toggleNotifications() {
+            const drawer = document.getElementById('notifDrawer');
+            const overlay = document.getElementById('notifOverlay');
+            drawer.classList.toggle('open');
+            overlay.classList.toggle('open');
+        }
+
+        // ── Command Palette ─────────────────────────────────────────────
+        let allStocks = [];
+        let cmdHighlightIdx = 0;
+
+        function openCommandPalette() {
+            document.getElementById('cmdOverlay').classList.add('open');
+            document.getElementById('cmdPalette').classList.add('open');
+            const input = document.getElementById('cmdInput');
+            input.value = '';
+            input.focus();
+            document.getElementById('cmdSymbolResults').style.display = 'none';
+            // Reset the Quick Actions group (a prior filter may have hidden items).
+            const actionsGroup = document.querySelector('#cmdResults > .mos-cmd-group');
+            if (actionsGroup) {
+                actionsGroup.style.display = '';
+                actionsGroup.querySelectorAll('.mos-cmd-item').forEach(item => { item.style.display = ''; });
+            }
+            cmdHighlightIdx = 0;
+            updateCmdHighlight();
+        }
+
+        function closeCommandPalette() {
+            document.getElementById('cmdOverlay').classList.remove('open');
+            document.getElementById('cmdPalette').classList.remove('open');
+        }
+
+        function cmdNavigate(path) {
+            closeCommandPalette();
+            window.location.href = path;
+        }
+
+        // Single source of truth for the currently-navigable items: only items inside
+        // a VISIBLE group. Keeps ↑/↓ highlight and Enter operating on the exact same set.
+        function cmdVisibleItems() {
+            return Array.from(document.querySelectorAll('#cmdPalette .mos-cmd-item')).filter(el => {
+                const grp = el.closest('.mos-cmd-group');
+                return el.offsetParent !== null && (!grp || grp.style.display !== 'none');
+            });
+        }
+        function updateCmdHighlight() {
+            const items = cmdVisibleItems();
+            if (cmdHighlightIdx >= items.length) cmdHighlightIdx = Math.max(0, items.length - 1);
+            items.forEach((item, i) => {
+                const on = i === cmdHighlightIdx;
+                item.classList.toggle('highlighted', on);
+                if (on) item.scrollIntoView({ block: 'nearest' });
+            });
+        }
+
+        // Subsequence fuzzy match: every char of q appears in order within text.
+        function cmdFuzzy(q, text) {
+            if (!q) return true;
+            text = (text || '').toUpperCase();
+            let i = 0;
+            for (const ch of q) { i = text.indexOf(ch, i); if (i === -1) return false; i++; }
+            return true;
+        }
+
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                openCommandPalette();
+            }
+            if (e.key === 'Escape') {
+                closeCommandPalette();
+            }
+        });
+
+        document.getElementById('cmdInput').addEventListener('input', function () {
+            const q = this.value.trim().toUpperCase();
+            const symGroup = document.getElementById('cmdSymbolResults');
+
+            // Fuzzy-filter the static Quick Actions group in place (hide non-matches).
+            let actionsVisible = 0;
+            const actionsGroup = document.querySelector('#cmdResults > .mos-cmd-group');
+            if (actionsGroup) {
+                actionsGroup.querySelectorAll('.mos-cmd-item').forEach(item => {
+                    const label = item.querySelector('span') ? item.querySelector('span').textContent : '';
+                    const show = cmdFuzzy(q, label);
+                    item.style.display = show ? '' : 'none';
+                    if (show) actionsVisible++;
+                });
+                actionsGroup.style.display = actionsVisible ? '' : 'none';
+            }
+
+            // Symbol search — subsequence fuzzy on symbol + sector; rank exact-prefix first.
+            if (q.length < 1) {
+                symGroup.style.display = 'none';
+            } else {
+                const matches = allStocks
+                    .filter(s => cmdFuzzy(q, s.symbol) || cmdFuzzy(q, s.sector))
+                    .sort((a, b) => {
+                        const ap = a.symbol.startsWith(q) ? 0 : 1;
+                        const bp = b.symbol.startsWith(q) ? 0 : 1;
+                        return ap - bp || (b.score || 0) - (a.score || 0);
+                    })
+                    .slice(0, 6);
+                if (matches.length) {
+                    symGroup.style.display = 'block';
+                    symGroup.innerHTML = '<div class="mos-cmd-group-label">Symbols</div>' +
+                        matches.map(s => `
+                        <div class="mos-cmd-item" onclick="cmdNavigate('/symbol/${s.symbol}')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>
+                            <span>${s.symbol} <small style="color:var(--text-muted)">${s.sector || ''}</small></span>
+                            <span class="mos-cmd-score" style="color:${s.score >= 75 ? 'var(--success)' : s.score >= 55 ? 'var(--warning)' : 'var(--text-muted)'}">${s.score || '—'}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    symGroup.style.display = 'none';
+                }
+            }
+
+            cmdHighlightIdx = 0;
+            updateCmdHighlight();
+        });
+
+        document.getElementById('cmdInput').addEventListener('keydown', function (e) {
+            const items = cmdVisibleItems();
+            if (!items.length) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); cmdHighlightIdx = (cmdHighlightIdx + 1) % items.length; updateCmdHighlight(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); cmdHighlightIdx = (cmdHighlightIdx - 1 + items.length) % items.length; updateCmdHighlight(); }
+            else if (e.key === 'Enter' && items[cmdHighlightIdx]) {
+                e.preventDefault();
+                items[cmdHighlightIdx].click();
+            }
+        });
+
+        // ── Drawer ──────────────────────────────────────────────────────
+        let _drawerData = null;
+        let _drawerChart = null;
+
+        function calcDrawerConf(d) {
+            const s = d.scan || d;
+            const t100 = Math.min(100, ((s.technical_score || 0) / 30) * 100);
+            const e100 = Math.min(100, ((s.earnings_momentum_score || 0) / 15) * 100);
+            const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score || 0) / 10) * 100);
+            const f100 = Math.min(100, ((s.fundamental_score || 0) / 10) * 100);
+            return Math.round(Math.min(100, Math.max(0, t100 * 0.30 + e100 * 0.25 + sm100 * 0.25 + f100 * 0.20)));
+        }
+
+        function calcHealth(d) {
+            const s = d.scan || d;
+            const t100 = Math.min(100, ((s.technical_score || 0) / 30) * 100);
+            const e100 = Math.min(100, ((s.earnings_momentum_score || 0) / 15) * 100);
+            const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score || 0) / 10) * 100);
+            const r = s.risk_score || 50;
+            const avg = (t100 + e100 + sm100 + (100 - r)) / 4;
+            if (avg >= 75) return { label: 'Excellent', emoji: '\uD83D\uDFE2', color: 'var(--success)' };
+            if (avg >= 60) return { label: 'Good', emoji: '\uD83D\uDFE1', color: 'var(--warning)' };
+            if (avg >= 45) return { label: 'Mixed', emoji: '\uD83D\uDFE0', color: '#f97316' };
+            return { label: 'Weak', emoji: '\uD83D\uDD34', color: 'var(--danger)' };
+        }
+
+        function getConviction(d) {
+            const s = d.scan || d;
+            const score = s.score || d.score || 0;
+            const hc = s.high_conviction || d.high_conviction;
+            if (score >= 80 && hc) return { level: 'strong-buy', label: 'Strong Buy' };
+            if (score >= 65) return { level: 'moderate-buy', label: 'Moderate Buy' };
+            if (score >= 50) return { level: 'watchlist', label: 'Watchlist' };
+            return { level: 'avoid', label: 'Avoid' };
+        }
+
+        // ── Thesis Radar for the stock drawer (built from the fetched payload's factor scores) ──
+        function _qrFactorScores(d) {
+            const s = d.scan || d;
+            return [
+                { key: 'technical', label: 'Technical', score: Math.round(Math.min(100, ((s.technical_score || 0) / 30) * 100)) },
+                { key: 'fundamental', label: 'Fundamental', score: Math.round(Math.min(100, ((s.fundamental_score || 0) / 10) * 100)) },
+                { key: 'earnings', label: 'Earnings', score: Math.round(Math.min(100, ((s.earnings_momentum_score || 0) / 15) * 100)) },
+                { key: 'smart_money', label: 'Smart Money', score: Math.round(s.smart_money_100 || Math.min(100, ((s.smart_money_score || 0) / 10) * 100)) },
+                { key: 'sector', label: 'Sector', score: Math.round(Math.min(100, ((s.sector_rotation_score || 0) / 10) * 100)) },
+                { key: 'risk', label: 'Risk', score: Math.round(Math.max(0, Math.min(100, 100 - (s.risk_score || 50)))) },
+            ];
+        }
+
+        function renderDrawerRadar(data, conf) {
+            const wrap = document.getElementById('drawerRadar');
+            if (!wrap) return;
+            const factors = _qrFactorScores(data);
+            const s = data.scan || data;
+            const health = (typeof calcHealth === 'function') ? calcHealth(data) : { label: '—', color: 'var(--text-secondary)' };
+            // Health bar fill mirrors calcHealth's internal average (technical, earnings, smart-money, inverted-risk).
+            const healthScore = Math.round(Math.max(0, Math.min(100, (factors[0].score + factors[2].score + factors[3].score + factors[5].score) / 4)));
+
+            // Geometry
+            const SZ = 168, C = SZ / 2, R = 64, N = factors.length;
+            const threshold = (typeof s.threshold === 'number') ? s.threshold : 75;
+            const ang = i => (-Math.PI / 2) + (i * 2 * Math.PI / N);
+            const pt = (i, val) => {
+                const rr = (Math.max(0, Math.min(100, val)) / 100) * R;
+                return [C + rr * Math.cos(ang(i)), C + rr * Math.sin(ang(i))];
+            };
+            const ringPoly = frac => factors.map((f, i) => {
+                const rr = frac * R; return (C + rr * Math.cos(ang(i))).toFixed(1) + ',' + (C + rr * Math.sin(ang(i))).toFixed(1);
+            }).join(' ');
+            const convPts = factors.map((f, i) => { const p = pt(i, f.score); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+            const threshPts = factors.map((f, i) => { const p = pt(i, threshold); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+            const composite = (typeof conf === 'number') ? conf : (typeof calcDrawerConf === 'function' ? calcDrawerConf(data) : 0);
+
+            // Axis labels
+            let axisLabels = '';
+            factors.forEach((f, i) => {
+                const lr = R + 14;
+                const x = C + lr * Math.cos(ang(i)), y = C + lr * Math.sin(ang(i));
+                const anchor = Math.abs(Math.cos(ang(i))) < 0.3 ? 'middle' : (Math.cos(ang(i)) > 0 ? 'start' : 'end');
+                axisLabels += `<text class="qr-radar-axis-label" x="${x.toFixed(1)}" y="${(y + 3).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="var(--text-secondary, #9AA3B2)">${f.label}</text>`;
+            });
+
+            // Accessible / colorblind factor table
+            const tableRows = factors.map(f => {
+                const ok = f.score >= threshold;
+                const col = f.score >= 95 ? 'var(--pos, #2FB67A)' : (ok ? 'var(--text-primary, #E7EBF2)' : 'var(--neg, #E5484D)');
+                const glyph = ok ? '▲' : '▼';
+                return `<div class="qr-radar-row"><span class="qr-radar-row-label">${f.label}</span><span class="qr-radar-row-score" style="color:${col};font-variant-numeric:tabular-nums">${glyph} ${f.score}</span></div>`;
+            }).join('');
+
+            wrap.innerHTML = `
+                <div class="qr-radar-grid">
+                    <div class="qr-radar-chart">
+                        <svg viewBox="0 0 ${SZ} ${SZ}" width="100%" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Thesis radar">
+                            <polygon class="qr-radar-ring" points="${ringPoly(1)}" fill="none" stroke="var(--border-hairline, #1E2630)" stroke-width="1"></polygon>
+                            <polygon class="qr-radar-ring" points="${ringPoly(0.75)}" fill="none" stroke="var(--border-hairline, #1E2630)" stroke-width="1"></polygon>
+                            <polygon class="qr-radar-ring" points="${ringPoly(0.5)}" fill="none" stroke="var(--border-hairline, #1E2630)" stroke-width="1"></polygon>
+                            <polygon class="qr-radar-ring" points="${ringPoly(0.25)}" fill="none" stroke="var(--border-hairline, #1E2630)" stroke-width="1"></polygon>
+                            <polygon class="qr-radar-threshold" points="${threshPts}" fill="none" stroke="var(--text-tertiary, #646D7C)" stroke-width="1" stroke-dasharray="3 3"></polygon>
+                            <polygon class="qr-radar-conviction" points="${convPts}" fill="var(--accent, #4C8DFF)" fill-opacity="0.12" stroke="var(--accent, #4C8DFF)" stroke-width="1.5"></polygon>
+                            ${axisLabels}
+                            <text class="qr-radar-center" x="${C}" y="${C - 2}" text-anchor="middle" font-size="22" font-weight="700" fill="var(--text-primary, #E7EBF2)" style="font-variant-numeric:tabular-nums">${composite}</text>
+                            <text x="${C}" y="${C + 12}" text-anchor="middle" font-size="8" fill="var(--text-tertiary, #646D7C)" letter-spacing="0.5">CONVICTION</text>
+                        </svg>
+                    </div>
+                    <div class="qr-radar-table" aria-label="Factor scores">${tableRows}</div>
+                </div>
+                <div class="qr-microbar-group">
+                    <div class="qr-microbar-item">
+                        <div class="qr-microbar-head"><span class="qr-microbar-label">Confidence</span><span class="qr-microbar-val" style="font-variant-numeric:tabular-nums">${composite}%</span></div>
+                        <div class="qr-microbar"><span class="qr-microbar-fill" style="width:${Math.max(0, Math.min(100, composite))}%"></span></div>
+                    </div>
+                    <div class="qr-microbar-item">
+                        <div class="qr-microbar-head"><span class="qr-microbar-label">Health</span><span class="qr-microbar-val" style="color:${health.color};font-variant-numeric:tabular-nums">${health.label}</span></div>
+                        <div class="qr-microbar"><span class="qr-microbar-fill" style="width:${Math.max(0, Math.min(100, healthScore))}%"></span></div>
+                    </div>
+                </div>`;
+            wrap.style.display = '';
+        }
+
+        function openDrawerForSymbol(symbol) {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('stockDrawer');
+            document.getElementById('drawerSymbol').textContent = symbol;
+            document.getElementById('drawerSector').textContent = '...';
+            document.getElementById('drawerPrice').textContent = '...';
+            document.getElementById('drawerChange').textContent = '';
+            document.getElementById('drawerMeta').innerHTML = '';
+            (function(){ var _r = document.getElementById('drawerRadar'); if (_r) { _r.style.display = 'none'; _r.innerHTML = ''; } })();
+            document.getElementById('drawerBody').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Loading analysis...</div>';
+            overlay.classList.add('open');
+            drawer.classList.add('open');
+
+            const wl = JSON.parse(QuantResearch.SystemRepository.getPreference('v3_watchlist', null) || '[]');
+            const inWL = wl.some(w => w.symbol === symbol);
+            const starBtn = document.getElementById('drawerStarBtn');
+            starBtn.textContent = inWL ? '\u2605' : '\u2606';
+            starBtn.classList.toggle('active', inWL);
+
+            fetch(`/api/stock/${symbol}`).then(r => r.json()).then(data => {
+                if (data.error) {
+                    document.getElementById('drawerBody').innerHTML = `<div style="padding:40px;text-align:center;color:var(--danger)">${data.error}</div>`;
+                    return;
+                }
+                _drawerData = data;
+                const s = data.scan || data;
+                document.getElementById('drawerSector').textContent = s.sector || data.sector || '\u2014';
+                document.getElementById('drawerPrice').textContent = '\u20B9' + (data.price || s.price || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+                const chg = s.pct_1w || 0;
+                const chgEl = document.getElementById('drawerChange');
+                chgEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(1) + '% 1W';
+                chgEl.style.color = chg >= 0 ? 'var(--success)' : 'var(--danger)';
+
+                const conf = calcDrawerConf(data);
+                const cl = conf >= 80 ? 'high' : conf >= 50 ? 'medium' : 'low';
+                const clLabel = conf >= 80 ? 'HIGH' : conf >= 50 ? 'MED' : 'LOW';
+                const conv = getConviction(data);
+                const score = s.score || data.score || 0;
+                const sc = score >= 80 ? 'excellent' : score >= 65 ? 'good' : score >= 50 ? 'average' : 'poor';
+
+                document.getElementById('drawerMeta').innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div class="v3-score ${sc}" style="font-size:16px;min-width:42px;height:32px">${score}</div>
+                <div class="tp-conf ${cl}" style="font-size:13px;font-weight:800"><span class="tp-conf-dot" style="width:6px;height:6px;border-radius:50%;display:inline-block;background:${cl === 'high' ? 'var(--success)' : cl === 'medium' ? 'var(--warning)' : 'var(--danger)'};margin-right:4px"></span>${conf}% ${clLabel}</div>
+                ${s.grade ? `<div class="v3-grade" style="font-size:11px;padding:2px 8px">${s.grade}</div>` : ''}
+                <div class="drawer-conviction ${conv.level}">${conv.label}</div>
+            </div>`;
+
+                renderDrawerRadar(data, conf);
+                renderDrawerContent(data);
+            }).catch(err => {
+                document.getElementById('drawerBody').innerHTML = `<div style="padding:40px;text-align:center;color:var(--danger)">Failed to load: ${err.message}</div>`;
+            });
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawerOverlay').classList.remove('open');
+            document.getElementById('stockDrawer').classList.remove('open');
+            if (_drawerChart) { _drawerChart.destroy(); _drawerChart = null; }
+            const em = document.getElementById('exportMenu');
+            if (em) em.classList.remove('open');
+            const _r = document.getElementById('drawerRadar');
+            if (_r) { _r.style.display = 'none'; _r.innerHTML = ''; }
+        }
+
+        function toggleDrawerWatchlist() {
+            if (!_drawerData) return;
+            const sym = _drawerData.symbol || document.getElementById('drawerSymbol').textContent;
+            const s = _drawerData.scan || _drawerData;
+            let wl = JSON.parse(QuantResearch.SystemRepository.getPreference('v3_watchlist', null) || '[]');
+            const idx = wl.findIndex(w => w.symbol === sym);
+            if (idx >= 0) { wl.splice(idx, 1); }
+            else { wl.push({ symbol: sym, addedAt: new Date().toISOString(), addedScore: s.score || 0, notes: '' }); }
+            QuantResearch.SystemRepository.setPreference('v3_watchlist', JSON.stringify(wl));
+            const btn = document.getElementById('drawerStarBtn');
+            const inWL = idx < 0;
+            btn.textContent = inWL ? '\u2605' : '\u2606';
+            btn.classList.toggle('active', inWL);
+        }
+
+        function toggleExportMenu() {
+            document.getElementById('exportMenu').classList.toggle('open');
+        }
+
+        function copyThesis() {
+            if (!_drawerData) return;
+            const s = _drawerData.scan || _drawerData;
+            const conf = calcDrawerConf(_drawerData);
+            const h = calcHealth(_drawerData);
+            const thesis = buildThesisText(s, _drawerData, conf, h);
+            navigator.clipboard.writeText(thesis).then(() => {
+                const btn = event.target;
+                btn.textContent = '\u2713 Copied!';
+                setTimeout(() => btn.textContent = '\uD83D\uDCCB Copy Thesis', 2000);
+            });
+            document.getElementById('exportMenu').classList.remove('open');
+        }
+
+        function downloadMarkdown() {
+            if (!_drawerData) return;
+            const s = _drawerData.scan || _drawerData;
+            const sym = _drawerData.symbol || s.symbol;
+            const conf = calcDrawerConf(_drawerData);
+            const h = calcHealth(_drawerData);
+            const tgt = _drawerData.targets || {};
+            const md = `# ${sym} \u2014 Research Snapshot\n\nScore: ${s.score || 0} | Confidence: ${conf}% ${conf >= 80 ? 'HIGH' : conf >= 50 ? 'MED' : 'LOW'} | Health: ${h.emoji} ${h.label}\n\n## Investment Thesis\n\n${buildThesisText(s, _drawerData, conf, h)}\n\n## Targets\n\nEntry: \u20B9${(_drawerData.price || 0).toFixed(2)} | Stop: \u20B9${(tgt.sl || s.stop_loss || 0).toFixed(2)} | Target: \u20B9${(tgt.t1 || s.target_price || 0).toFixed(2)}${tgt.t2 ? ' | T2: \u20B9' + tgt.t2.toFixed(2) : ''}${tgt.t3 ? ' | T3: \u20B9' + tgt.t3.toFixed(2) : ''} | R:R: ${(s.risk_reward || 0) > 0 ? '1:' + (s.risk_reward || 0).toFixed(1) : '--'}\n\n## Signals\n\n${(s.signals || []).map(sg => '- ' + (Array.isArray(sg) ? sg[0] : sg)).join('\n')}\n\n---\n*Generated by QuantResearch on ${new Date().toLocaleDateString()}*\n`;
+            const blob = new Blob([md], { type: 'text/markdown' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${sym}_research_${new Date().toISOString().slice(0, 10)}.md`;
+            a.click();
+            document.getElementById('exportMenu').classList.remove('open');
+        }
+
+        function buildThesisText(s, data, conf, health) {
+            const reasons = [];
+            const e100 = Math.min(100, ((s.earnings_momentum_score || 0) / 15) * 100);
+            const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score || 0) / 10) * 100);
+            const sect100 = Math.min(100, ((s.sector_rotation_score || 0) / 10) * 100);
+            const fund100 = Math.min(100, ((s.fundamental_score || 0) / 10) * 100);
+            if (e100 > 70) reasons.push('Accelerating earnings momentum');
+            if (sm100 > 70) reasons.push('Smart money accumulation detected (rising delivery + OBV)');
+            if (sect100 > 70) reasons.push(`Sector leadership (${(s.sector_rotation || {}).quadrant || 'Leading'} quadrant)`);
+            if ((s.risk_reward || 0) > 2) reasons.push(`Favorable risk/reward ratio of 1:${(s.risk_reward || 0).toFixed(1)}`);
+            if (fund100 > 60) reasons.push('Strong fundamental quality');
+            if (s.is_breakout) reasons.push('Breakout pattern with volume confirmation');
+            if (s.high_conviction) reasons.push('Multi-factor high conviction alignment');
+            if (!reasons.length) reasons.push('Highest composite score across all research factors');
+
+            const risks = [];
+            const rsi = s.rsi || data.rsi && data.rsi[data.rsi.length - 1] || 50;
+            if (rsi > 70) risks.push(`RSI at ${Math.round(rsi)} approaching overbought territory`);
+            if (s.below_ema200) risks.push('Trading below 200 EMA \u2014 structural downtrend');
+            if ((s.risk_score || 0) > 50) risks.push(`Elevated risk score of ${s.risk_score}`);
+            if (!risks.length) risks.push('No major risks flagged');
+
+            return `This stock ranks highly due to:\n${reasons.slice(0, 4).map(r => '\u2022 ' + r).join('\n')}\n\nKey Risk:\n${risks.slice(0, 3).join('. ')}.\n\nExpected Holding:\n10\u201320 trading days (swing trade)`;
+        }
+
+        // renderDrawerContent, loadTimeline, showTimelineFallback, switchDrawerTab, renderDrawerChart
+        // are defined in the child templates or loaded dynamically
+        if (typeof renderDrawerContent === 'undefined') {
+            function renderDrawerContent(data) {
+                document.getElementById('drawerBody').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Detailed view available on Discovery pages.</div>';
+            }
+        }
+
+        function switchDrawerTab(tab, btn) {
+            document.querySelectorAll('#drawerTabs .v3-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('#drawerTabContent .v3-tab-panel').forEach(p => p.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            const panel = document.getElementById('tab-' + tab);
+            if (panel) panel.classList.add('active');
+            if (tab === 'chart' && _drawerData && !_drawerChart) {
+                renderDrawerChart(_drawerData);
+            }
+        }
+
+        function renderDrawerChart(data) {
+            const canvas = document.getElementById('drawerLineChart');
+            if (!canvas || typeof Chart === 'undefined') return;
+            const s = data.scan || data;
+            let dates = data.dates || [];
+            let closes = data.close || [];
+            let ema9 = data.ema_9 || [];
+            let ema21 = data.ema_21 || [];
+            let volumes = data.volume || [];
+            const n = Math.min(60, dates.length);
+            dates = dates.slice(-n); closes = closes.slice(-n);
+            ema9 = ema9.slice(-n); ema21 = ema21.slice(-n); volumes = volumes.slice(-n);
+            if (!dates.length) {
+                canvas.parentElement.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Chart data not available</div>';
+                return;
+            }
+            const supports = (s.supports || data.supports || []).filter(v => v > 0);
+            const resistances = (s.resistances || data.resistances || []).filter(v => v > 0);
+            const annotations = {};
+            supports.slice(0, 2).forEach((v, i) => {
+                annotations['sup' + i] = { type: 'line', yMin: v, yMax: v, borderColor: 'rgba(16,185,129,0.5)', borderWidth: 1, borderDash: [5, 3], label: { display: i === 0, content: 'S: ' + v.toFixed(0), position: 'start', font: { size: 9 }, color: '#10B981', backgroundColor: 'transparent' } };
+            });
+            resistances.slice(0, 2).forEach((v, i) => {
+                annotations['res' + i] = { type: 'line', yMin: v, yMax: v, borderColor: 'rgba(239,68,68,0.5)', borderWidth: 1, borderDash: [5, 3], label: { display: i === 0, content: 'R: ' + v.toFixed(0), position: 'start', font: { size: 9 }, color: '#EF4444', backgroundColor: 'transparent' } };
+            });
+            _drawerChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        { label: 'Close', data: closes, borderColor: '#F8FAFC', borderWidth: 2, pointRadius: 0, tension: 0.1, fill: false, order: 1 },
+                        { label: 'EMA 9', data: ema9, borderColor: '#06B6D4', borderWidth: 1, borderDash: [4, 2], pointRadius: 0, tension: 0.1, fill: false, order: 2 },
+                        { label: 'EMA 21', data: ema21, borderColor: '#F59E0B', borderWidth: 1, borderDash: [4, 2], pointRadius: 0, tension: 0.1, fill: false, order: 3 },
+                        { label: 'Volume', data: volumes, type: 'bar', backgroundColor: 'rgba(59,130,246,0.15)', yAxisID: 'vol', order: 4 },
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: true, interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        x: { display: true, ticks: { maxTicksLimit: 8, font: { size: 9 }, color: '#64748B' }, grid: { display: false } },
+                        y: { display: true, position: 'right', ticks: { font: { size: 9 }, color: '#64748B' }, grid: { color: 'rgba(42,54,75,0.5)' } },
+                        vol: { display: false, position: 'left', beginAtZero: true, max: Math.max(...volumes.filter(v => v)) * 4 },
+                    },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 10 }, color: '#94A3B8', padding: 8, filter: item => item.text !== 'Volume' } },
+                        annotation: Object.keys(annotations).length ? { annotations } : undefined,
+                    }
+                }
+            });
+        }
+
+        // ── Command Center Data ─────────────────────────────────────────
+        function isMarketOpen() {
+            const now = new Date();
+            const ist = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            const day = ist.getDay();
+            if (day === 0 || day === 6) return false;
+            const h = ist.getHours(), m = ist.getMinutes();
+            const mins = h * 60 + m;
+            return mins >= 555 && mins <= 930;
+        }
+
+        // ── Header breadth donut + index sparkline (fed by live adv/dec) ──
+        window._qrBreadthHist = window._qrBreadthHist || [];
+        function updateHeaderBreadthViz(adv, dec) {
+            const total = (adv || 0) + (dec || 0);
+            const donut = document.getElementById('headerBreadthDonut');
+            const arc = document.getElementById('headerBreadthDonutArc');
+            // Donut: share of advancers; hide gracefully when no data.
+            if (donut && arc) {
+                if (total > 0) {
+                    const frac = Math.max(0, Math.min(1, adv / total));
+                    const circ = 2 * Math.PI * 9; // r=9
+                    arc.setAttribute('stroke-dasharray', circ.toFixed(1) + ' ' + circ.toFixed(1));
+                    arc.setAttribute('stroke-dashoffset', (circ * (1 - frac)).toFixed(1));
+                    arc.style.stroke = frac >= 0.5 ? 'var(--pos, #2FB67A)' : 'var(--neg, #E5484D)';
+                    donut.style.display = '';
+                } else {
+                    donut.style.display = 'none';
+                }
+            }
+            // Sparkline: rolling breadth ratio history; hide until we have >=2 points.
+            const spark = document.getElementById('headerIndexSpark');
+            const line = document.getElementById('headerIndexSparkLine');
+            if (spark && line) {
+                if (total > 0) {
+                    const r = dec > 0 ? adv / dec : (adv > 0 ? 2 : 1);
+                    window._qrBreadthHist.push(r);
+                    if (window._qrBreadthHist.length > 24) window._qrBreadthHist.shift();
+                }
+                const h = window._qrBreadthHist;
+                if (h.length >= 2) {
+                    const W = 48, H = 16, pad = 1.5;
+                    const lo = Math.min.apply(null, h), hi = Math.max.apply(null, h);
+                    const span = (hi - lo) || 1;
+                    const pts = h.map((v, i) => {
+                        const x = h.length > 1 ? (i / (h.length - 1)) * W : 0;
+                        const y = H - pad - ((v - lo) / span) * (H - pad * 2);
+                        return x.toFixed(1) + ',' + y.toFixed(1);
+                    }).join(' ');
+                    line.setAttribute('points', pts);
+                    line.style.stroke = h[h.length - 1] >= h[0] ? 'var(--pos, #2FB67A)' : 'var(--neg, #E5484D)';
+                    spark.style.display = '';
+                } else {
+                    spark.style.display = 'none';
+                }
+            }
+        }
+
+        function updateCommandCenter() {
+            fetch('/api/status').then(r => r.json()).then(data => {
+                const isLive = isMarketOpen();
+                const pill = document.getElementById('marketStatusPill');
+                pill.className = 'mos-status-pill ' + (isLive ? 'live' : 'closed');
+                document.getElementById('marketStatusText').textContent = isLive ? 'LIVE' : 'CLOSED';
+                const lastScan = data.last_scan || '—';
+                // Change Set E-2: when a NEW scan completes (auto OR manual), refresh page data
+                // ONCE — version-driven (only on change, not every poll, so no excess load).
+                if (data.last_scan && window._mosLastSeenScan && data.last_scan !== window._mosLastSeenScan) {
+                    if (typeof loadPageData === 'function') { try { loadPageData(); } catch (e) {} }
+                }
+                if (data.last_scan) window._mosLastSeenScan = data.last_scan;
+                const scanParts = lastScan.split(' ');
+                const scanTime = scanParts.length >= 2 ? scanParts[1] : lastScan;
+                document.getElementById('headerLastScan').textContent = scanTime !== '—' ? scanTime : '—';
+                const regime = (data.market_regime || 'unknown').toLowerCase();
+                const regimeEl = document.getElementById('headerRegime');
+                regimeEl.textContent = (data.market_regime || '—').toUpperCase();
+                regimeEl.className = 'mos-regime-badge ' + (regime.includes('bull') ? 'bullish' : regime.includes('bear') ? 'bearish' : 'sideways');
+                const adv = data.adv_count || 0;
+                const dec = data.dec_count || 0;
+                const ratio = dec > 0 ? (adv / dec).toFixed(2) : adv > 0 ? '∞' : '1.00';
+                document.getElementById('headerBreadth').textContent = ratio;
+                updateHeaderBreadthViz(adv, dec);
+            }).catch(() => { });
+
+            if (isMarketOpen() || !document.getElementById('headerLeadingSector').textContent || document.getElementById('headerLeadingSector').textContent === '—') {
+                fetch('/api/sector-rotation').then(r => r.json()).then(data => {
+                    if (data.sectors) {
+                        const leading = data.sectors.filter(s => s.quadrant === 'Leading').sort((a, b) => (b.momentum || 0) - (a.momentum || 0));
+                        document.getElementById('headerLeadingSector').textContent = leading[0] ? leading[0].sector : '—';
+                    }
+                }).catch(() => { });
+            }
+        }
+
+        // ── Quick Actions ───────────────────────────────────────────────
+        // Single manual scan path. Uses the bottom-right progress toast (reusing the
+        // refresh-card component) and an already-running guard: if a scan is already in
+        // progress we attach to it (poll only) instead of starting a second one.
+        function runScan() {
+            // Already-running guard: check status first, then decide POST vs attach.
+            fetch('/api/status').then(r => r.json()).then(data => {
+                if (data && data.scanning) {
+                    // Attach to the running scan — show toast + poll, do NOT POST.
+                    v3Overlay.showScanProgress(data);
+                    return;
+                }
+                // Start a new scan.
+                fetch('/api/scan', { method: 'POST' }).then(r => {
+                    // 409 = already running (raced with another trigger) — just attach.
+                    if (r.status === 409) { v3Overlay.showScanProgress(); return; }
+                    v3Overlay.showScanProgress();
+                }).catch(() => { v3Overlay._completeScanProgress(); });
+            }).catch(() => {
+                // Status unavailable — best-effort start.
+                fetch('/api/scan', { method: 'POST' })
+                    .then(() => { v3Overlay.showScanProgress(); })
+                    .catch(() => { v3Overlay._completeScanProgress(); });
+            });
+        }
+
+        function refreshData() {
+            v3Overlay.showRefresh();
+            updateCommandCenter();
+            if (typeof loadPageData === 'function') loadPageData();
+            setTimeout(() => { v3Overlay._completeRefresh(); }, 2500);
+        }
+
+        function exportPicks() { window.open('/api/export/csv', '_blank'); }
+
+        // ── Init ────────────────────────────────────────────────────────
+        updateCommandCenter();
+
+        (function initPolling() {
+            let _pollTimer = null;
+            function schedulePoll() {
+                const interval = isMarketOpen() ? 30000 : 120000;
+                _pollTimer = setTimeout(() => { updateCommandCenter(); schedulePoll(); }, interval);
+            }
+            schedulePoll();
+        })();
+
+        (function loadSearchList() {
+            const CACHE_KEY = 'v3_search_list';
+            const TTL_KEY = 'v3_search_list_ts';
+            const TTL_MS = 5 * 60 * 1000;
+            const cached = QuantResearch.SystemRepository.getCache(CACHE_KEY);
+            const cachedTs = parseInt(QuantResearch.SystemRepository.getCache(TTL_KEY) || '0', 10);
+            if (cached && (Date.now() - cachedTs) < TTL_MS) {
+                try { allStocks = JSON.parse(cached) || []; return; } catch (e) { }
+            }
+            fetch('/api/search-list').then(r => r.json()).then(data => {
+                allStocks = data || [];
+                try { QuantResearch.SystemRepository.setCache(CACHE_KEY, JSON.stringify(allStocks)); QuantResearch.SystemRepository.setCache(TTL_KEY, String(Date.now())); } catch (e) { }
+            }).catch(() => { });
+        })();
+
+        // ═══ BOTTOM STATUS STRIP ═══════════════════════════════════════════
+        // Living tape + data-freshness pill + session-aware clock + scan chip.
+        // All from /api/status + /api/live-prices (already-polled endpoints) — no new backend.
+        (function initStatusStrip() {
+            // ── Session model (IST) ──
+            // Boundaries in minutes-from-midnight IST: pre-open 09:00–09:15, open 09:15–15:30,
+            // (lunch is informational only — NSE has no lunch break, but the strip surfaces a
+            // mid-session marker 12:00–13:00 for desk rhythm), post 15:30–16:00, else closed.
+            function istNow() {
+                return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+            }
+            function pad2(n) { return (n < 10 ? '0' : '') + n; }
+            function fmtCountdown(mins) {
+                if (mins <= 0) return '';
+                const h = Math.floor(mins / 60), m = Math.floor(mins % 60);
+                return h > 0 ? (h + 'h ' + pad2(m) + 'm') : (m + 'm');
+            }
+            function sessionState() {
+                const ist = istNow();
+                const day = ist.getDay();
+                const mins = ist.getHours() * 60 + ist.getMinutes() + ist.getSeconds() / 60;
+                if (day === 0 || day === 6) {
+                    // Next Monday 09:15
+                    const toMon = ((8 - day) % 7) || 1;
+                    return { key: 'closed', name: 'Closed', next: 'Opens in', mins: toMon * 24 * 60 + (555 - mins) };
+                }
+                if (mins < 540) return { key: 'pre', name: 'Pre-open', next: 'Session in', mins: 555 - mins };
+                if (mins < 555) return { key: 'pre', name: 'Pre-open', next: 'Open in', mins: 555 - mins };
+                if (mins < 720) return { key: 'open', name: 'Open', next: 'Close in', mins: 930 - mins };
+                if (mins < 780) return { key: 'lunch', name: 'Midday', next: 'Close in', mins: 930 - mins };
+                if (mins < 930) return { key: 'open', name: 'Open', next: 'Close in', mins: 930 - mins };
+                if (mins < 960) return { key: 'post', name: 'Post-close', next: 'Ends in', mins: 960 - mins };
+                return { key: 'closed', name: 'Closed', next: 'Opens in', mins: (24 * 60 - mins) + 555 };
+            }
+            function renderSession() {
+                const st = sessionState();
+                const dot = document.getElementById('qrSessionDot');
+                const name = document.getElementById('qrSessionName');
+                const cnt = document.getElementById('qrSessionCount');
+                if (dot) dot.className = 'qr-session-dot ' + st.key;
+                if (name) name.textContent = st.name;
+                if (cnt) {
+                    const cd = fmtCountdown(st.mins);
+                    cnt.textContent = cd ? (st.next + ' ' + cd) : '';
+                }
+            }
+
+            // ── Data-freshness pill (parses /api/status.last_scan "YYYY-MM-DD HH:MM:SS" as IST) ──
+            window._qrLastScanRaw = window._qrLastScanRaw || null;
+            function renderFreshness() {
+                const pill = document.getElementById('qrFreshPill');
+                const txt = document.getElementById('qrFreshText');
+                if (!pill || !txt) return;
+                const raw = window._qrLastScanRaw;
+                if (!raw || raw === '—') { txt.textContent = 'as of —'; pill.classList.remove('stale'); return; }
+                const parts = raw.split(' ');
+                const timePart = parts.length >= 2 ? parts[1] : raw;
+                txt.textContent = 'as of ' + timePart + ' IST';
+                // Staleness: compare scan timestamp (IST) with now (IST). >15 min during a live
+                // session flags --warn; when the market is closed a stale scan is expected, so no warn.
+                try {
+                    const dp = (parts[0] || '').split('-').map(Number);
+                    const tp = (timePart || '').split(':').map(Number);
+                    if (dp.length === 3 && tp.length >= 2) {
+                        const scanMs = new Date(dp[0], dp[1] - 1, dp[2], tp[0], tp[1], tp[2] || 0).getTime();
+                        const nowIst = istNow().getTime();
+                        const ageMin = (nowIst - scanMs) / 60000;
+                        const live = (typeof isMarketOpen === 'function') && isMarketOpen();
+                        pill.classList.toggle('stale', live && ageMin > 15);
+                    }
+                } catch (e) { pill.classList.remove('stale'); }
+            }
+
+            // ── Per-engine scan chip (driven by /api/status) ──
+            function engineLabel() {
+                try {
+                    const e = (window.QR && QR.engine && QR.engine()) || window.__qrDefaultEngine || '';
+                    return (e || 'SCAN').toString().toUpperCase();
+                } catch (e) { return 'SCAN'; }
+            }
+            window._qrRenderScanChip = function (data) {
+                const chip = document.getElementById('qrScanChip');
+                if (!chip) return;
+                if (!data || !data.scanning) { chip.classList.remove('active'); return; }
+                chip.classList.add('active');
+                const eng = document.getElementById('qrScanChipEngine');
+                if (eng) eng.textContent = engineLabel();
+                const prog = document.getElementById('qrScanChipProgress');
+                if (prog) {
+                    let p = '';
+                    if (typeof data.completed === 'number' && typeof data.universe_total === 'number' && data.universe_total > 0) {
+                        p = data.completed + '/' + data.universe_total;
+                    } else if (typeof data.progress === 'number' && typeof data.total === 'number' && data.total > 0) {
+                        p = data.progress + '/' + data.total;
+                    } else if (typeof data.batch_progress === 'number') {
+                        p = Math.round(data.batch_progress) + '%';
+                    }
+                    prog.textContent = p;
+                }
+            };
+
+            // ── Living tape (watchlist first, else broad live-prices sample) ──
+            function watchlistSymbols() {
+                try {
+                    const wl = JSON.parse(QuantResearch.SystemRepository.getPreference('v3_watchlist', null) || '[]');
+                    return wl.map(w => w.symbol).filter(Boolean);
+                } catch (e) { return []; }
+            }
+            function renderTape(prices) {
+                const track = document.getElementById('qrTapeTrack');
+                const empty = document.getElementById('qrTapeEmpty');
+                if (!track || !empty) return;
+                const syms = Object.keys(prices || {});
+                if (!syms.length) { track.style.display = 'none'; empty.style.display = ''; return; }
+                // Prefer watchlist symbols that have live data; otherwise take a stable sample.
+                const wl = watchlistSymbols().filter(s => prices[s]);
+                let list = wl.length ? wl : syms.sort().slice(0, 24);
+                const cell = s => {
+                    const d = prices[s] || {};
+                    const chg = typeof d.change_pct === 'number' ? d.change_pct : 0;
+                    const cls = chg > 0 ? 'pos' : (chg < 0 ? 'neg' : '');
+                    const glyph = chg > 0 ? '▲' : (chg < 0 ? '▼' : '');
+                    const price = (d.price || d.ltp || 0);
+                    const priceStr = price ? price.toLocaleString('en-IN', { maximumFractionDigits: 2 }) : '—';
+                    const chgStr = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%';
+                    return '<span class="qr-tape-item" onclick="if(typeof openDrawerForSymbol===\'function\')openDrawerForSymbol(\'' + s + '\')">'
+                        + '<span class="qr-tape-sym">' + s + '</span>'
+                        + '<span class="qr-tape-val">' + priceStr + '</span>'
+                        + '<span class="qr-tape-chg ' + cls + '">' + glyph + ' ' + chgStr + '</span>'
+                        + '</span>';
+                };
+                // Duplicate the sequence so the -50% keyframe loops seamlessly.
+                const seq = list.map(cell).join('');
+                track.innerHTML = seq + seq;
+                track.style.display = '';
+                empty.style.display = 'none';
+                // Scale duration to content so speed stays calm regardless of item count.
+                track.style.animationDuration = Math.max(30, list.length * 3) + 's';
+            }
+            function pollTape() {
+                fetch('/api/live-prices').then(r => r.json()).then(renderTape).catch(() => { });
+            }
+
+            // ── Wire up ──
+            renderSession();
+            renderFreshness();
+            setInterval(renderSession, 1000);   // clock + countdown tick
+            pollTape();
+            setInterval(pollTape, (typeof isMarketOpen === 'function' && isMarketOpen()) ? 15000 : 60000);
+
+            // Hook the scan chip + freshness into the existing /api/status poll without
+            // touching updateCommandCenter: wrap it so every status refresh also updates us.
+            if (typeof updateCommandCenter === 'function' && !updateCommandCenter._qrWrapped) {
+                const _orig = updateCommandCenter;
+                window.updateCommandCenter = function () {
+                    const out = _orig.apply(this, arguments);
+                    // updateCommandCenter fetches /api/status itself; piggyback one lightweight read
+                    // so chip + freshness reflect the same source (cache makes this near-free).
+                    fetch('/api/status').then(r => r.json()).then(data => {
+                        if (data) {
+                            window._qrLastScanRaw = data.last_scan || window._qrLastScanRaw;
+                            if (typeof window._qrRenderScanChip === 'function') window._qrRenderScanChip(data);
+                            renderFreshness();
+                        }
+                    }).catch(() => { });
+                    return out;
+                };
+                window.updateCommandCenter._qrWrapped = true;
+                // Prime immediately.
+                window.updateCommandCenter();
+            }
+        })();
+    </script>
+
+    <!-- ═══ PROGRESS TOAST (refresh + scan share the bottom-right card) ═══ -->
+    <style>
+        /* Bottom-right progress toast — hidden by default; the JS controller adds
+           .active to reveal. Without these rules the unstyled div rendered in normal
+           flow and leaked its text onto every page. */
+        .v3-ai-refresh-card { display: none; }
+        .v3-ai-refresh-card.active {
+            display: flex; position: fixed; right: 20px; bottom: 20px; z-index: 9998;
+            flex-direction: column; align-items: center; gap: 6px;
+            background: var(--surface-raised, #161D28); border: 1px solid var(--border-strong, #2A333F);
+            border-radius: 8px; padding: 18px 22px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .v3-ai-refresh-card.fade-out { opacity: 0; transition: opacity .3s ease; }
+        .v3-ai-center-text { color: var(--text-primary, #E7EBF2); font-weight: 600; letter-spacing: 1px; font-size: 18px; }
+        .v3-ai-center-text span { color: var(--accent, #4C8DFF); }
+        .v3-ai-status-msg { color: var(--text-secondary, #9AA3B2); font-size: 14px; margin-top: 14px; }
+        .v3-ai-status-msg.fading { opacity: 0; transition: opacity .3s ease; }
+        .v3-ai-dots-line { display: flex; gap: 6px; margin-top: 12px; }
+        .v3-ai-pulse-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent, #4C8DFF); opacity: .5; }
+        .v3-ai-complete-wrap { flex-direction: column; align-items: center; gap: 6px; }
+        .v3-ai-check-circle { color: var(--pos, #2FB67A); font-size: 34px; line-height: 1; }
+        .v3-ai-complete-title { color: var(--text-primary, #E7EBF2); font-size: 16px; font-weight: 600; }
+        .v3-ai-complete-sub { color: var(--text-secondary, #9AA3B2); font-size: 12px; }
+    </style>
+    <div class="v3-ai-refresh-card" id="v3RefreshCard">
+        <div id="v3RefreshProcessing">
+            <div class="v3-ai-spinner-wrap">
+                <div class="v3-ai-ring"></div>
+                <div class="v3-ai-center-text">QUANT<span>RESEARCH</span></div>
+            </div>
+            <div class="v3-ai-status-msg" id="v3RefreshStatus">Refreshing Market Data...</div>
+            <div class="v3-ai-dots-line"><span class="v3-ai-pulse-dot"></span><span class="v3-ai-pulse-dot"></span><span class="v3-ai-pulse-dot"></span></div>
+        </div>
+        <div class="v3-ai-complete-wrap" id="v3RefreshComplete">
+            <div class="v3-ai-check-circle">&#10003;</div>
+            <div class="v3-ai-complete-title">Dashboard Updated</div>
+            <div class="v3-ai-complete-sub">All data refreshed successfully.</div>
+        </div>
+    </div>
+
+    <script>
+        // ═══ V3 Overlay Controller ═══
+        const v3Overlay = {
+            refreshMessages: ['Refreshing Market Data...', 'Updating Price Information...', 'Refreshing News Sentiment...', 'Recalculating Quantitative Scores...', 'Finalizing Dashboard...'],
+            _refreshMsgIdx: 0, _refreshMsgTimer: null, _refreshActive: false, _scanActive: false, _scanPollTimer: null,
+
+            showRefresh() {
+                clearInterval(this._refreshMsgTimer); this._refreshActive = true; this._refreshMsgIdx = 0;
+                const card = document.getElementById('v3RefreshCard');
+                const processing = document.getElementById('v3RefreshProcessing');
+                const complete = document.getElementById('v3RefreshComplete');
+                processing.style.display = 'flex'; processing.style.flexDirection = 'column'; processing.style.alignItems = 'center';
+                complete.classList.remove('show'); complete.style.display = 'none';
+                card.classList.remove('fade-out'); card.classList.add('active');
+                this._rotateRefreshMsg(); this._refreshMsgTimer = setInterval(() => this._rotateRefreshMsg(), 3000);
+            },
+
+            _rotateRefreshMsg() {
+                const el = document.getElementById('v3RefreshStatus'); if (!el) return;
+                el.classList.add('fading');
+                setTimeout(() => { this._refreshMsgIdx = (this._refreshMsgIdx + 1) % this.refreshMessages.length; el.textContent = this.refreshMessages[this._refreshMsgIdx]; el.classList.remove('fading'); }, 500);
+            },
+
+            // ── Scan progress (reuses the bottom-right refresh-card toast) ──
+            // No narrator rotation; the status line shows real progress from /api/status.
+            showScanProgress(status) {
+                if (this._scanActive) { if (status) this._renderScanStatus(status); return; }
+                this._scanActive = true;
+                clearInterval(this._scanPollTimer);
+                const card = document.getElementById('v3RefreshCard');
+                const processing = document.getElementById('v3RefreshProcessing');
+                const complete = document.getElementById('v3RefreshComplete');
+                const statusEl = document.getElementById('v3RefreshStatus');
+                processing.style.display = 'flex'; processing.style.flexDirection = 'column'; processing.style.alignItems = 'center';
+                complete.classList.remove('show'); complete.style.display = 'none';
+                card.classList.remove('fade-out'); card.classList.add('active');
+                if (statusEl) statusEl.textContent = 'Running Market Scan...';
+                this._renderScanStatus(status);
+                this._startScanStatusPoll();
+            },
+
+            // Build a progress line from /api/status fields (progress/total or batch_progress).
+            _renderScanStatus(data) {
+                const el = document.getElementById('v3RefreshStatus'); if (!el || !data) return;
+                let msg = data.progress_message || 'Running Market Scan...';
+                if (typeof data.completed === 'number' && typeof data.universe_total === 'number' && data.universe_total > 0) {
+                    msg += ' (' + data.completed + '/' + data.universe_total + ')';
+                } else if (typeof data.progress === 'number' && typeof data.total === 'number' && data.total > 0) {
+                    msg += ' (' + data.progress + '/' + data.total + ')';
+                } else if (typeof data.batch_progress === 'number') {
+                    msg += ' (' + Math.round(data.batch_progress) + '%)';
+                }
+                el.textContent = msg;
+            },
+
+            _startScanStatusPoll() {
+                const MAX_POLL_ITERATIONS = 200; // ~10 min at 3s
+                let count = 0;
+                this._scanPollTimer = setInterval(() => {
+                    count++;
+                    if (count >= MAX_POLL_ITERATIONS) { this._completeScanProgress(); return; }
+                    fetch('/api/status').then(r => r.json()).then(data => {
+                        if (data && data.scanning) { this._renderScanStatus(data); return; }
+                        this._completeScanProgress();
+                    }).catch(() => { });
+                }, 3000);
+            },
+
+            _completeScanProgress() {
+                if (!this._scanActive) return; this._scanActive = false;
+                clearInterval(this._scanPollTimer);
+                const processing = document.getElementById('v3RefreshProcessing');
+                const complete = document.getElementById('v3RefreshComplete');
+                const title = complete ? complete.querySelector('.v3-ai-complete-title') : null;
+                const sub = complete ? complete.querySelector('.v3-ai-complete-sub') : null;
+                const prevTitle = title ? title.textContent : null;
+                const prevSub = sub ? sub.textContent : null;
+                if (title) title.textContent = 'Scan Complete';
+                if (sub) sub.textContent = 'Market Intelligence Updated';
+                processing.style.display = 'none'; complete.style.display = 'flex';
+                requestAnimationFrame(() => { complete.classList.add('show'); });
+                setTimeout(() => {
+                    this._closeRefresh();
+                    // Restore refresh-card text so the refresh toast keeps its own labels.
+                    if (title && prevTitle !== null) title.textContent = prevTitle;
+                    if (sub && prevSub !== null) sub.textContent = prevSub;
+                }, 3000);
+                if (typeof loadPageData === 'function') loadPageData();
+                updateCommandCenter();
+            },
+
+            _completeRefresh() {
+                if (!this._refreshActive) return; this._refreshActive = false;
+                clearInterval(this._refreshMsgTimer);
+                const processing = document.getElementById('v3RefreshProcessing');
+                const complete = document.getElementById('v3RefreshComplete');
+                processing.style.display = 'none'; complete.style.display = 'flex';
+                requestAnimationFrame(() => { complete.classList.add('show'); });
+                setTimeout(() => this._closeRefresh(), 3000);
+            },
+
+            _closeRefresh() {
+                const card = document.getElementById('v3RefreshCard');
+                card.classList.add('fade-out');
+                setTimeout(() => { card.classList.remove('active', 'fade-out'); }, 500);
+            },
+
+            cleanup() {
+                clearInterval(this._refreshMsgTimer); clearInterval(this._scanPollTimer);
+                this._scanActive = false; this._refreshActive = false;
+            }
+        };
+    </script>
+
+    <script>
+        // Phase 5.1.9: Sidebar Translation on Mode Change
+        (function() {
+            const SIDEBAR_TRANSLATIONS = {
+                'nav-portfolio': { pro: 'Portfolio Center', beginner: 'My Trades' },
+                'nav-research-terminal': { pro: 'Research Terminal', beginner: 'Analysis Terminal' },
+                'nav-outcome': { pro: 'Performance', beginner: 'Trade Review' },
+            };
+
+            function applySidebarTranslations() {
+                const mode = QuantResearch.Terminology.getMode();
+                Object.entries(SIDEBAR_TRANSLATIONS).forEach(([navId, labels]) => {
+                    const el = document.getElementById(navId);
+                    if (!el) return;
+                    const span = el.querySelector('span');
+                    if (span) span.textContent = labels[mode] || labels.pro;
+                });
+            }
+
+            // Apply on load
+            applySidebarTranslations();
+
+            // React to mode changes
+            document.addEventListener('mos-ux-mode-changed', applySidebarTranslations);
+
+            // Phase 5.1.9: Glossary Tooltip Renderer
+            window._renderGlossary = function(term) {
+                const mode = QuantResearch.Terminology.getLearningMode();
+                if (mode === 'off') return '';
+                const glossary = QuantResearch.GuidedRuleEngine.GLOSSARY;
+                const explanation = glossary[term];
+                if (!explanation) return '';
+                return `<span class="mos-glossary-trigger">?<span class="mos-glossary-popup">${explanation}</span></span>`;
+            };
+        })();
+    </script>
+
+    <!-- ═══ ENGINE SWITCHER (data-driven; per-client view only) ═══════════
+         Defined BEFORE the child scripts block so child page scripts can call
+         QR.url(...) synchronously. The switch flips the client's view engine
+         via localStorage + reload; it NEVER POSTs the server default. -->
+    <script>
+        window.QR = window.QR || {};
+        QR.engine = function () { return localStorage.getItem('qr_engine') || window.__qrDefaultEngine || ''; };
+        QR.url = function (path) {
+            const e = QR.engine();
+            if (!e) return path;
+            return path + (path.includes('?') ? '&' : '?') + 'engine=' + encodeURIComponent(e);
+        };
+
+        (function initEngineSwitch() {
+            const mount = document.getElementById('qrEngineSwitch');
+
+            function setEngine(id) {
+                localStorage.setItem('qr_engine', id);
+                location.reload();
+            }
+
+            function render(engines, active) {
+                if (!mount) return;
+                if (!Array.isArray(engines) || !engines.length) { mount.style.display = 'none'; return; }
+                const current = QR.engine() || active || '';
+                mount.innerHTML = '';
+                engines.forEach(function (eng) {
+                    const seg = document.createElement('button');
+                    seg.type = 'button';
+                    seg.className = 'qr-engine-seg' + (eng.id === current ? ' active' : '');
+                    seg.setAttribute('data-engine', eng.id);
+                    seg.setAttribute('tabindex', '0');
+                    seg.setAttribute('role', 'radio');
+                    seg.setAttribute('aria-checked', eng.id === current ? 'true' : 'false');
+                    seg.title = (eng.label || eng.id) + ' engine';
+                    seg.textContent = eng.label || eng.id;
+                    seg.addEventListener('click', function () { if (eng.id !== current) setEngine(eng.id); });
+                    mount.appendChild(seg);
+                });
+            }
+
+            fetch('/api/engines').then(function (r) { return r.json(); }).then(function (data) {
+                if (!data) return;
+                window.__qrDefaultEngine = data.active || '';
+                render(data.engines || [], data.active || '');
+            }).catch(function () { if (mount) mount.style.display = 'none'; });
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+
+    <!-- D1-D: Zero-Network Tooltip Glossary -->
+    <script id="marketos-glossary" type="application/json">
+    {
+        "Score": "Combined multi-factor score from 0-100. Higher means stronger buy candidate based on technical, fundamental, and momentum factors.",
+        "Risk Score": "Composite risk assessment from 0-100. Lower is safer. Factors include volatility, drawdown risk, and sector exposure.",
+        "R:R Ratio": "Risk-Reward ratio. Expected reward divided by risk. A 1:2 ratio means you risk 1 unit to potentially gain 2. Minimum 1:1.5 recommended.",
+        "Target 1": "Primary price target derived from resistance levels, fibonacci extensions, and historical price action.",
+        "Target 2": "Secondary price target. Typically 10-15% above Target 1.",
+        "Target 3": "Extended price target for momentum continuation scenarios.",
+        "Stop Loss": "Maximum acceptable loss price. Position should be exited if price drops below this level.",
+        "Entry Zone": "Optimal price range for entering a position. Defined by support levels and risk-reward optimization.",
+        "Conviction": "Confidence score derived from QuantResearch signal convergence. High conviction means multiple indicators agree.",
+        "Weekly Trend": "Overall market trend assessed on weekly timeframe charts. More reliable than daily trends.",
+        "ADX": "Average Directional Index. Measures trend strength (not direction). Above 25 = strong trend, below 20 = weak/no trend.",
+        "RSI": "Relative Strength Index. Momentum oscillator (0-100). Above 70 = overbought, below 30 = oversold.",
+        "MACD": "Moving Average Convergence Divergence. Trend-following momentum indicator showing relationship between two moving averages.",
+        "Volume Ratio": "Current volume compared to 20-day average. Above 2x suggests institutional interest.",
+        "Delivery %": "Percentage of traded shares actually delivered. High delivery (>50%) suggests genuine buying interest.",
+        "Alpha": "Expected outperformance vs benchmark (Nifty 50). Positive alpha means the stock is expected to beat the market.",
+        "Breakout": "Price moving above a significant resistance level with increased volume, signaling potential trend continuation.",
+        "High Conviction": "Top-tier picks where multiple QuantResearch engines agree on strong upside potential with controlled risk.",
+        "Sector": "Industry classification of the stock. Sector performance affects individual stock behavior.",
+        "Signal": "Automated recommendation based on real-time analysis. Examples: BUY, HOLD, SELL, BOOK PROFIT, TRAIL SL."
+    }
+    </script>
+    <script>
+    // D1-D: Global Tooltip Builder (zero-network)
+    (function() {
+        let _glossary = null;
+        function getGlossary() {
+            if (_glossary) return _glossary;
+            try {
+                const el = document.getElementById('marketos-glossary');
+                _glossary = el ? JSON.parse(el.textContent) : {};
+            } catch (e) { _glossary = {}; }
+            return _glossary;
+        }
+
+        // Auto-attach tooltips to any element with data-term attribute
+        document.addEventListener('mouseover', function(e) {
+            const trigger = e.target.closest('[data-term]');
+            if (!trigger || trigger._tooltipAttached) return;
+            trigger._tooltipAttached = true;
+
+            const term = trigger.getAttribute('data-term');
+            const glossary = getGlossary();
+            const text = glossary[term];
+            if (!text) return;
+
+            const popup = document.createElement('div');
+            popup.className = 'mos-glossary-popup';
+            popup.textContent = text;
+            popup.style.display = 'block';
+            trigger.style.position = trigger.style.position || 'relative';
+            trigger.appendChild(popup);
+
+            // Auto-hide after mouse leaves
+            trigger.addEventListener('mouseleave', function() {
+                if (popup.parentNode) popup.parentNode.removeChild(popup);
+                trigger._tooltipAttached = false;
+            }, { once: true });
+        });
+
+        // Expose for programmatic use
+        window.QuantResearch = window.QuantResearch || {};
+        window.QuantResearch.getGlossaryTerm = function(term) {
+            return getGlossary()[term] || null;
+        };
+    })();
+    </script>
+
+    <!-- PWA service worker registration -->
+    <script>if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
+</body>
+
+</html>

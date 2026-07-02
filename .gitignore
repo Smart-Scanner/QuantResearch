@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────
+# QuantResearch — .gitignore
+# ─────────────────────────────────────────────────────────────
+
+# ── Secrets / environment ─────────────────────────────────────
+.env
+.env.local
+*.env.local
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# ── Node / JS tooling (DEV-ONLY: Playwright test harness; keep the prod build Python-only) ──
+node_modules/
+package.json
+package-lock.json
+playwright.config.ts
+
+# ── Runtime state, caches, logs ───────────────────────────────
+cache/
+logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# ── Test / build / audit artifacts ────────────────────────────
+test-results/
+scratch/
+audit_baseline/
+screenshots_audit/
+screenshot_*.png
+*.zip
+
+# ── Generated reports & dumps ─────────────────────────────────
+prod_schema.json
+api_resp.json
+request.json
+audit_*_results.json
+split_brain_audit_results.json
+audit_output.txt
+audit_historical_trend.csv
+changed_files.txt
+all_financial_rows.txt
+financials_structure.txt
+target_inspect.txt
+test_results.txt
+paper_audit.txt
+live_feed_history.txt
+
+# ── OS / IDE / local tooling ──────────────────────────────────
+.DS_Store
+.claude/settings.local.json
+
+# Angel session tokens (JWT) + login locks — sensitive, never commit
+cache/angel_session_*.json
+cache/angel_login_*.lock

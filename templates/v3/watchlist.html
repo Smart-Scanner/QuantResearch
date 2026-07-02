@@ -1,0 +1,589 @@
+{% extends "_app_base.html" %}
+{% set active_page = "watchlist" %}
+{% block title %}Watchlist{% endblock %}
+{% block content %}
+<div class="v3-page-header wl-header">
+    <div>
+        <div class="v3-page-title">Watchlist</div>
+        <div class="v3-page-subtitle">Track conviction, live price and score drift across your symbols</div>
+    </div>
+    <div class="wl-toolbar" id="wlToolbar" style="display:none">
+        <div class="wl-add">
+            <svg class="wl-add-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="wlAddInput" class="wl-add-input" type="text" placeholder="Add symbol (e.g. RELIANCE)" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')wlAddSymbol()">
+            <button class="wl-add-btn" onclick="wlAddSymbol()">Add</button>
+        </div>
+        <div class="wl-toolbar-right">
+            <span class="wl-count" id="wlCount"></span>
+            <div class="wl-sort">
+                <label for="wlSort" class="wl-sort-label">Sort</label>
+                <select id="wlSort" class="wl-sort-select" onchange="renderWatchlist()">
+                    <option value="added">Recently added</option>
+                    <option value="score">Score</option>
+                    <option value="delta">Score change</option>
+                    <option value="chg">Day change</option>
+                    <option value="symbol">Symbol A–Z</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Empty State -->
+<div id="wlEmpty" class="v3-empty-state" style="display:none">
+    <div class="v3-empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </div>
+    <div class="v3-empty-title">Build your watchlist</div>
+    <div class="v3-empty-desc">Add a symbol to track its live price, composite score and how conviction drifts since the day you flagged it.</div>
+    <div class="wl-empty-add">
+        <input id="wlEmptyInput" class="wl-add-input" type="text" placeholder="Add symbol (e.g. RELIANCE)" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')wlAddSymbol(true)">
+        <button class="wl-add-btn primary" onclick="wlAddSymbol(true)">Add symbol</button>
+    </div>
+</div>
+
+<!-- Skeleton (content-shaped load state) -->
+<div id="wlSkeleton" class="wl-table-wrap" style="display:none">
+    <div class="wl-skel-rows" id="wlSkelRows"></div>
+</div>
+
+<!-- Watchlist Table -->
+<div id="wlTableWrap" class="wl-table-wrap" style="display:none">
+    <div class="wl-table-scroll">
+        <table class="wl-table">
+            <thead>
+                <tr>
+                    <th class="wl-th-sym">Symbol</th>
+                    <th class="num">CMP</th>
+                    <th class="num">1D</th>
+                    <th class="num">Score</th>
+                    <th class="num">Δ Since</th>
+                    <th class="wl-th-conv">Conviction</th>
+                    <th class="num">R:R</th>
+                    <th class="num">RSI</th>
+                    <th class="num">1W</th>
+                    <th class="wl-th-act"></th>
+                </tr>
+            </thead>
+            <tbody id="wlRows"></tbody>
+        </table>
+    </div>
+    <div class="wl-freshness" id="wlFreshness"></div>
+</div>
+
+<style>
+.wl-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.wl-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.wl-toolbar-right { display: flex; align-items: center; gap: 16px; }
+
+.wl-add { position: relative; display: flex; align-items: center; }
+.wl-add-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; color: var(--text-tertiary); pointer-events: none;
+}
+.wl-add-input {
+    height: 32px; width: 220px;
+    background: var(--surface); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    padding: 0 12px 0 30px; font-size: 13px; font-family: inherit;
+    outline: none; transition: border-color var(--transition);
+    text-transform: uppercase; letter-spacing: 0.3px;
+}
+.wl-add-input::placeholder { color: var(--text-tertiary); text-transform: none; letter-spacing: 0; }
+.wl-add-input:focus { border-color: var(--accent); outline: 1px solid var(--accent); outline-offset: -1px; }
+.wl-add-btn {
+    height: 32px; margin-left: 6px; padding: 0 14px;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--text-secondary);
+    font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.wl-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+.wl-add-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wl-add-btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.wl-add-btn:focus-visible, .wl-icon-btn:focus-visible, .wl-sort-select:focus-visible {
+    outline: 1px solid var(--accent); outline-offset: 1px;
+}
+
+.wl-count {
+    font-size: 12px; color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.wl-sort { display: flex; align-items: center; gap: 8px; }
+.wl-sort-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+}
+.wl-sort-select {
+    height: 32px; background: var(--surface); color: var(--text-secondary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    padding: 0 10px; font-size: 12px; font-family: inherit; font-weight: 500;
+    cursor: pointer; outline: none; transition: border-color var(--transition);
+}
+.wl-sort-select:focus { border-color: var(--accent); }
+
+/* ── Table shell ─────────────────────────────────────────── */
+.wl-table-wrap {
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); overflow: hidden; margin-top: 4px;
+}
+/* Scroll container — lets the dense table pan horizontally on narrow viewports */
+.wl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wl-table { width: 100%; border-collapse: collapse; }
+
+.wl-table thead th {
+    padding: 10px 14px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-tertiary); text-align: left; white-space: nowrap;
+    border-bottom: 1px solid var(--border-hairline);
+    background: var(--surface); position: sticky; top: 0; z-index: 2;
+}
+.wl-table th.num { text-align: right; }
+.wl-th-conv { width: 128px; }
+.wl-th-act { width: 76px; }
+/* Symbol column pins left; header corner sits above both axes */
+.wl-table thead th.wl-th-sym { position: sticky; left: 0; z-index: 3; }
+.wl-table tbody td.wl-td-sym {
+    position: sticky; left: 0; z-index: 1; background: var(--surface);
+}
+
+.wl-table tbody tr {
+    cursor: pointer; transition: background var(--transition);
+    border-bottom: 1px solid var(--border-subtle);
+}
+.wl-table tbody tr:last-child { border-bottom: none; }
+.wl-table tbody tr:hover { background: var(--bg-card-hover); }
+.wl-table tbody tr:hover td.wl-td-sym { background: var(--bg-card-hover); }
+
+.wl-table tbody td {
+    padding: 0 14px; height: 46px; font-size: 13px;
+    color: var(--text-secondary); white-space: nowrap; vertical-align: middle;
+}
+.wl-table td.num {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* Symbol cell */
+.wl-sym-cell { display: flex; flex-direction: column; gap: 1px; }
+.wl-sym { font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.2px; }
+.wl-sym-meta {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-tertiary);
+}
+.wl-sym-dot { color: var(--border-strong); }
+.wl-sym-tag {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+    padding: 1px 5px; border-radius: var(--radius-xs);
+    background: var(--accent-blue-soft); color: var(--accent);
+}
+.wl-sym-tag.golden { background: var(--golden-soft); color: var(--golden); }
+
+/* Numeric semantics (DATA ONLY) */
+.wl-cmp { color: var(--text-primary); font-weight: 600; transition: color var(--transition); }
+.wl-num-pos { color: var(--pos); }
+.wl-num-neg { color: var(--neg); }
+.wl-num-dim { color: var(--text-tertiary); }
+.wl-flash-pos { animation: wl-flash-pos 640ms ease-out; }
+.wl-flash-neg { animation: wl-flash-neg 640ms ease-out; }
+@keyframes wl-flash-pos { 0% { background: var(--success-soft); } 100% { background: transparent; } }
+@keyframes wl-flash-neg { 0% { background: var(--danger-soft); } 100% { background: transparent; } }
+
+/* Score chip reuses v3-score palette; kept compact */
+.wl-score { min-width: 40px; height: 26px; font-size: 13px; }
+
+/* Δ Since badge */
+.wl-delta {
+    display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px;
+    min-width: 44px; font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px;
+}
+.wl-delta.up { color: var(--pos); }
+.wl-delta.down { color: var(--neg); }
+.wl-delta.flat { color: var(--text-tertiary); }
+.wl-delta-glyph { font-size: 9px; line-height: 1; }
+
+/* Conviction bar */
+.wl-conv { display: flex; align-items: center; gap: 8px; }
+.wl-conv-track { flex: 1; height: 4px; border-radius: 2px; background: var(--bg-elevated); overflow: hidden; }
+.wl-conv-fill { height: 100%; border-radius: 2px; transition: width var(--transition-slow); }
+.wl-conv-fill.high { background: var(--pos); }
+.wl-conv-fill.medium { background: var(--warn); }
+.wl-conv-fill.low { background: var(--neg); }
+.wl-conv-val {
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+    min-width: 26px; text-align: right;
+}
+
+/* Row actions */
+.wl-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.wl-icon-btn {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    border: 1px solid transparent; background: transparent; color: var(--text-tertiary);
+    cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.wl-icon-btn svg { width: 15px; height: 15px; }
+.wl-icon-btn:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--surface); }
+.wl-icon-btn.danger:hover { border-color: var(--danger-border); color: var(--neg); background: var(--danger-soft); }
+.wl-icon-btn.active { color: var(--accent); }
+
+/* Note row (expandable) */
+.wl-note-row td { padding: 0 14px 12px; height: auto; }
+.wl-note-row.hidden { display: none; }
+.wl-note-input {
+    width: 100%; padding: 8px 12px;
+    background: var(--canvas); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    font-size: 12px; font-family: inherit; resize: vertical; min-height: 34px;
+    outline: none; transition: border-color var(--transition);
+}
+.wl-note-input:focus { border-color: var(--accent); }
+.wl-note-input::placeholder { color: var(--text-tertiary); }
+.wl-note-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--accent);
+    display: inline-block; margin-left: 6px;
+}
+
+/* Freshness strip */
+.wl-freshness {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-top: 1px solid var(--border-subtle);
+    font-size: 11px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.wl-freshness-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pos); }
+.wl-freshness-dot.stale { background: var(--warn); }
+
+/* Empty-state add (no leading search icon here, so reset the icon inset) */
+.wl-empty-add { display: flex; align-items: center; gap: 8px; margin-top: 20px; }
+.wl-empty-add .wl-add-input { width: 240px; padding-left: 12px; }
+
+/* Skeleton rows */
+.wl-skel-rows { padding: 0; }
+.wl-skel-line {
+    display: flex; align-items: center; gap: 16px;
+    height: 46px; padding: 0 14px; border-bottom: 1px solid var(--border-subtle);
+}
+.wl-skel-line:last-child { border-bottom: none; }
+.wl-skel-bar {
+    height: 12px; border-radius: 4px;
+    background: var(--bg-card); position: relative; overflow: hidden;
+}
+.wl-skel-bar::after {
+    content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--bg-card-hover), transparent);
+    animation: wl-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes wl-shimmer { 100% { transform: translateX(100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .wl-skel-bar::after { animation: none; }
+    .wl-flash-pos, .wl-flash-neg { animation: none; }
+    .wl-cmp { transition: none; }
+}
+
+/* ── Mobile: pan the dense table, keep the symbol column pinned ── */
+@media (max-width: 720px) {
+    /* Give columns room so the table pans rather than cramping. */
+    .wl-table { min-width: 720px; }
+    /* Hairline separator on the pinned column so it reads as frozen while content scrolls under it. */
+    .wl-th-sym, .wl-table tbody td.wl-td-sym { border-right: 1px solid var(--border-hairline); }
+    .wl-table thead th, .wl-table tbody td { height: 44px; }
+
+    /* Keep the expandable note readable without panning: pin it to the viewport width. */
+    .wl-note-row td { padding-left: 14px; padding-right: 14px; }
+    .wl-note-input { position: sticky; left: 14px; width: calc(100vw - 92px); max-width: 100%; }
+
+    /* Toolbar reflows: search on its own row, sort + count beneath. */
+    .wl-toolbar { width: 100%; gap: 10px; }
+    .wl-add { flex: 1; }
+    .wl-add-input { width: 100%; flex: 1; }
+    .wl-toolbar-right { width: 100%; justify-content: space-between; gap: 10px; }
+}
+
+@media (max-width: 390px) {
+    .wl-header { gap: 12px; }
+    .wl-empty-add { flex-direction: column; align-items: stretch; }
+    .wl-empty-add .wl-add-input, .wl-empty-add .wl-add-btn { width: 100%; }
+    .wl-sort-label { display: none; }
+}
+</style>
+
+<script>
+let wlResults = {};
+let wlLive = {};            // symbol -> latest live { ltp, change_pct }
+let wlLiveTimer = null;
+let wlLastTick = null;
+
+function getWatchlist() {
+    try { return JSON.parse(QuantResearch.SystemRepository.getPreference('v3_watchlist', null) || '[]'); } catch { return []; }
+}
+function saveWatchlist(wl) {
+    QuantResearch.SystemRepository.setPreference('v3_watchlist', JSON.stringify(wl));
+}
+
+function removeFromWatchlist(symbol) {
+    let wl = getWatchlist().filter(w => w.symbol !== symbol);
+    saveWatchlist(wl);
+    delete wlResults[symbol];
+    renderWatchlist();
+}
+
+function updateNote(symbol, note) {
+    let wl = getWatchlist();
+    const item = wl.find(w => w.symbol === symbol);
+    if (item) { item.notes = note; saveWatchlist(wl); renderWatchlist(); }
+}
+
+function toggleNoteRow(symbol) {
+    const row = document.getElementById('wlnote-' + cssId(symbol));
+    if (row) {
+        row.classList.toggle('hidden');
+        if (!row.classList.contains('hidden')) { const ta = row.querySelector('textarea'); if (ta) ta.focus(); }
+    }
+}
+
+function cssId(sym) { return sym.replace(/[^A-Za-z0-9_-]/g, '_'); }
+
+async function wlAddSymbol(fromEmpty) {
+    const input = document.getElementById(fromEmpty ? 'wlEmptyInput' : 'wlAddInput');
+    if (!input) return;
+    const sym = (input.value || '').trim().toUpperCase().replace(/\.NS$/, '');
+    if (!sym) return;
+    let wl = getWatchlist();
+    if (wl.some(w => w.symbol === sym)) { input.value = ''; return; }
+    // pull current score so Δ Since has a baseline
+    let addedScore = 0;
+    try {
+        const resp = await fetch('/api/watchlist/details', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbols: [sym] })
+        });
+        const data = await resp.json();
+        const r = (data.stocks || {})[sym];
+        if (r) { const s = r.scan || r; addedScore = s.score || r.score || 0; wlResults[sym] = r; }
+    } catch (e) { /* keep baseline 0 */ }
+    wl.push({ symbol: sym, addedAt: new Date().toISOString(), addedScore, notes: '' });
+    saveWatchlist(wl);
+    input.value = '';
+    renderWatchlist();
+    startLive();
+}
+
+// ── Formatting helpers ──────────────────────────────────
+function fmtPrice(v) { return '₹' + (Number(v) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtPct(v) {
+    if (v === null || v === undefined || isNaN(v)) return '<span class="wl-num-dim">—</span>';
+    const n = Number(v);
+    const cls = n > 0 ? 'wl-num-pos' : n < 0 ? 'wl-num-neg' : 'wl-num-dim';
+    return `<span class="${cls}">${n > 0 ? '+' : ''}${n.toFixed(2)}%</span>`;
+}
+
+function scoreClass(s) { return s >= 80 ? 'excellent' : s >= 65 ? 'good' : s >= 50 ? 'average' : 'poor'; }
+
+function convData(s) {
+    const t100 = Math.min(100, ((s.technical_score || 0) / 30) * 100);
+    const e100 = Math.min(100, ((s.earnings_momentum_score || 0) / 15) * 100);
+    const sm100 = s.smart_money_100 || Math.min(100, ((s.smart_money_score || 0) / 10) * 100);
+    const f100 = Math.min(100, ((s.fundamental_score || 0) / 10) * 100);
+    const conf = Math.round(Math.min(100, Math.max(0, t100 * 0.30 + e100 * 0.25 + sm100 * 0.25 + f100 * 0.20)));
+    const cl = conf >= 80 ? 'high' : conf >= 50 ? 'medium' : 'low';
+    return { conf, cl };
+}
+
+// ── Render ──────────────────────────────────────────────
+function sortRows(wl, mode) {
+    const val = (w) => {
+        const r = wlResults[w.symbol] || {}; const s = r.scan || r;
+        const score = s.score || r.score || 0;
+        switch (mode) {
+            case 'score': return -score;
+            case 'delta': return -((score) - (w.addedScore || 0));
+            case 'chg': return -((wlLive[w.symbol] || {}).change_pct ?? -999);
+            case 'symbol': return w.symbol;
+            default: return -(new Date(w.addedAt || 0).getTime());
+        }
+    };
+    return [...wl].sort((a, b) => {
+        const va = val(a), vb = val(b);
+        if (typeof va === 'string') return va.localeCompare(vb);
+        return va - vb;
+    });
+}
+
+function renderWatchlist() {
+    const wl = getWatchlist();
+    const empty = document.getElementById('wlEmpty');
+    const skel = document.getElementById('wlSkeleton');
+    const wrap = document.getElementById('wlTableWrap');
+    const toolbar = document.getElementById('wlToolbar');
+
+    skel.style.display = 'none';
+
+    if (!wl.length) {
+        empty.style.display = 'flex';
+        wrap.style.display = 'none';
+        toolbar.style.display = 'none';
+        return;
+    }
+
+    empty.style.display = 'none';
+    wrap.style.display = 'block';
+    toolbar.style.display = 'flex';
+    document.getElementById('wlCount').textContent = wl.length + (wl.length === 1 ? ' symbol' : ' symbols');
+
+    const mode = (document.getElementById('wlSort') || {}).value || 'added';
+    const rows = sortRows(wl, mode);
+
+    document.getElementById('wlRows').innerHTML = rows.map(w => {
+        const id = cssId(w.symbol);
+        const r = wlResults[w.symbol] || {};
+        const s = r.scan || r;
+        const score = s.score || r.score || 0;
+        const sector = s.sector || r.sector || '—';
+        const live = wlLive[w.symbol] || {};
+        const cmp = live.ltp || s.price || r.price || 0;
+        const dayChg = (live.change_pct !== undefined && live.change_pct !== null) ? live.change_pct : (s.pct_1d ?? null);
+
+        const delta = score - (w.addedScore || 0);
+        const dCls = delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat';
+        const dGlyph = delta > 0 ? '▲' : delta < 0 ? '▼' : '';
+        const dText = delta === 0 ? '0' : Math.abs(delta);
+
+        const { conf, cl } = convData(s);
+        const rr = s.risk_reward || 0;
+        const rsi = s.rsi || 0;
+        const pct1w = (s.pct_1w !== undefined && s.pct_1w !== null) ? s.pct_1w : null;
+        const tag = s.is_golden ? '<span class="wl-sym-tag golden">GOLDEN</span>' : (s.high_conviction ? '<span class="wl-sym-tag">HC</span>' : '');
+        const hasNote = (w.notes || '').trim().length > 0;
+
+        return `<tr onclick="openDrawerForSymbol('${w.symbol}')">
+            <td class="wl-td-sym">
+                <div class="wl-sym-cell">
+                    <div class="wl-sym">${w.symbol}${tag}${hasNote ? '<span class="wl-note-dot" title="Has note"></span>' : ''}</div>
+                    <div class="wl-sym-meta"><span>${sector}</span></div>
+                </div>
+            </td>
+            <td class="num"><span class="wl-cmp" id="wlcmp-${id}" data-symbol="${w.symbol}">${fmtPrice(cmp)}</span></td>
+            <td class="num" id="wlchg-${id}">${fmtPct(dayChg)}</td>
+            <td class="num"><span class="v3-score ${scoreClass(score)} wl-score">${score}</span></td>
+            <td class="num"><span class="wl-delta ${dCls}"><span class="wl-delta-glyph">${dGlyph}</span>${dText}</span></td>
+            <td class="wl-conv-cell">
+                <div class="wl-conv">
+                    <div class="wl-conv-track"><div class="wl-conv-fill ${cl}" style="width:${conf}%"></div></div>
+                    <span class="wl-conv-val">${conf}</span>
+                </div>
+            </td>
+            <td class="num">${rr > 0 ? '1:' + rr.toFixed(1) : '<span class="wl-num-dim">—</span>'}</td>
+            <td class="num">${rsi ? rsi.toFixed(0) : '<span class="wl-num-dim">—</span>'}</td>
+            <td class="num">${fmtPct(pct1w)}</td>
+            <td>
+                <div class="wl-row-actions" onclick="event.stopPropagation()">
+                    <button class="wl-icon-btn ${hasNote ? 'active' : ''}" title="Note" onclick="toggleNoteRow('${w.symbol}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                    </button>
+                    <a class="wl-icon-btn" title="Open analysis" href="/symbol/${encodeURIComponent(w.symbol)}" onclick="event.stopPropagation()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </a>
+                    <button class="wl-icon-btn danger" title="Remove" onclick="removeFromWatchlist('${w.symbol}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            </td>
+        </tr>
+        <tr class="wl-note-row ${hasNote ? '' : 'hidden'}" id="wlnote-${id}">
+            <td colspan="10">
+                <textarea class="wl-note-input" rows="2" placeholder="Research note for ${w.symbol}…" onclick="event.stopPropagation()" onblur="updateNote('${w.symbol}', this.value)">${(w.notes || '').replace(/</g, '&lt;')}</textarea>
+            </td>
+        </tr>`;
+    }).join('');
+
+    updateFreshness();
+}
+
+function updateFreshness() {
+    const el = document.getElementById('wlFreshness');
+    if (!el) return;
+    if (!wlLastTick) { el.innerHTML = '<span class="wl-freshness-dot stale"></span> Awaiting live prices'; return; }
+    const t = wlLastTick.toLocaleTimeString('en-IN', { hour12: false });
+    const stale = (Date.now() - wlLastTick.getTime()) > 30000;
+    el.innerHTML = `<span class="wl-freshness-dot ${stale ? 'stale' : ''}"></span> As of ${t} IST · live prices refresh every 5s`;
+}
+
+// ── Live prices (reuses /api/live-prices GET, same as top_picks) ──
+async function updateLivePrices() {
+    const wl = getWatchlist();
+    if (!wl.length) return;
+    try {
+        const resp = await fetch('/api/live-prices');
+        if (!resp.ok) return;
+        const prices = await resp.json();
+        wl.forEach(w => {
+            const d = prices[w.symbol] || prices[w.symbol.replace('.NS', '')];
+            if (d && d.ltp) {
+                wlLive[w.symbol] = d;
+                const id = cssId(w.symbol);
+                const el = document.getElementById('wlcmp-' + id);
+                if (el) {
+                    const old = parseFloat(el.textContent.replace(/[₹,]/g, '')) || 0;
+                    el.textContent = fmtPrice(d.ltp);
+                    if (d.ltp > old) { el.classList.remove('wl-flash-neg'); el.classList.add('wl-flash-pos'); el.style.color = 'var(--pos)'; }
+                    else if (d.ltp < old) { el.classList.remove('wl-flash-pos'); el.classList.add('wl-flash-neg'); el.style.color = 'var(--neg)'; }
+                    setTimeout(() => { el.classList.remove('wl-flash-pos', 'wl-flash-neg'); el.style.color = ''; }, 700);
+                }
+                const cel = document.getElementById('wlchg-' + id);
+                if (cel && d.change_pct !== undefined && d.change_pct !== null) cel.innerHTML = fmtPct(d.change_pct);
+            }
+        });
+        wlLastTick = new Date();
+        updateFreshness();
+    } catch (e) { /* silent */ }
+}
+
+function startLive() {
+    if (wlLiveTimer) return;
+    updateLivePrices();
+    wlLiveTimer = setInterval(updateLivePrices, 5000);
+}
+
+// ── Init ────────────────────────────────────────────────
+async function loadWatchlistData() {
+    const wl = getWatchlist();
+    if (!wl.length) { renderWatchlist(); return; }
+
+    // content-shaped skeleton while details load
+    const skel = document.getElementById('wlSkeleton');
+    const skelRows = document.getElementById('wlSkelRows');
+    const widths = ['32%', '46%', '38%', '30%', '55%', '40%'];
+    skelRows.innerHTML = wl.slice(0, Math.min(wl.length, 8)).map(() =>
+        `<div class="wl-skel-line">${['150px', '70px', '54px', '46px', '110px', '50px'].map((w, i) =>
+            `<div class="wl-skel-bar" style="width:${w};max-width:${widths[i]}"></div>`).join('')}</div>`
+    ).join('');
+    document.getElementById('wlEmpty').style.display = 'none';
+    document.getElementById('wlTableWrap').style.display = 'none';
+    skel.style.display = 'block';
+
+    try {
+        const symbols = wl.map(w => w.symbol);
+        const resp = await fetch('/api/watchlist/details', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbols })
+        });
+        const data = await resp.json();
+        Object.entries(data.stocks || {}).forEach(([sym, r]) => { wlResults[sym] = r; });
+    } catch (e) {
+        console.warn('Could not load watchlist details:', e);
+    }
+    renderWatchlist();
+    startLive();
+}
+
+loadWatchlistData();
+</script>
+{% endblock %}

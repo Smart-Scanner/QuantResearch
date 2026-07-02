@@ -1,0 +1,572 @@
+{% extends "_app_base.html" %}
+{% block title %}Admin — QuantResearch{% endblock %}
+
+{% block head %}
+<style>
+    /* Map the old admin token names onto the QuantResearch design tokens so the existing
+       admin markup/classes reskin to the institutional design language with NO structural
+       change (every form/modal/table/JS below is preserved exactly). */
+    :root {
+        --bg: var(--canvas); --panel: var(--surface); --panel-soft: var(--surface-raised);
+        --border: var(--border-hairline); --text: var(--text-primary); --muted: var(--text-secondary);
+        --primary: var(--accent); --primary-dark: var(--accent-hover);
+        --green: var(--pos); --red: var(--neg); --yellow: var(--warn); --blue: var(--accent);
+    }
+    a { color: inherit; text-decoration: none; }
+
+    /* Page title */
+    .admin-topline { display:flex; align-items:center; gap:12px; padding: 4px 0 2px; }
+    .admin-page-title { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
+    .admin-tagchip { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--accent); background: var(--accent-blue-soft); border: 1px solid rgba(76,141,255,.3); padding: 2px 9px; border-radius: 10px; }
+
+    /* Flash */
+    .flash { margin: 14px 0 0; padding: 10px 14px; border-radius: 6px; font-size: 12px; background: var(--success-soft); border: 1px solid var(--success-border); color: var(--pos); }
+    .flash.warn { background: var(--danger-soft); border-color: var(--danger-border); color: var(--neg); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:4px; flex-wrap:wrap; padding: 14px 0 0; border-bottom: 1px solid var(--border-hairline); margin-bottom: 20px; }
+    .tab { background:none; border:none; color: var(--text-secondary); padding: 10px 16px; font-size: 13px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Panes */
+    .pane { display:none; } .pane.active { display:block; }
+    .pane-head { display:flex; align-items:center; margin-bottom:16px; gap:12px; }
+    .pane-head h2 { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: .2px; }
+    .pane-head .count { font-size: 11px; color: var(--text-secondary); background: var(--surface); padding: 3px 10px; border-radius: 10px; border: 1px solid var(--border-hairline); font-family: 'JetBrains Mono', monospace; }
+    .spacer { flex: 1; }
+
+    /* Tables */
+    .panel { background: var(--surface); border: 1px solid var(--border-hairline); border-radius: 8px; overflow: hidden; }
+    table { width:100%; border-collapse: collapse; font-size: 13px; }
+    thead th { text-align:left; padding: 11px 14px; background: var(--surface-raised); border-bottom: 1px solid var(--border-hairline); color: var(--text-secondary); font-size: 10px; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+    tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); color: var(--text-primary); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-hover); }
+    .col-email { font-weight: 500; }
+    .col-sub { color: var(--text-secondary); font-size: 12px; }
+    .empty { padding: 40px; text-align:center; color: var(--text-secondary); font-size: 13px; }
+
+    /* Badges — semantic color = DATA only */
+    .badge { display:inline-block; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .4px; }
+    .badge.gray { background: rgba(154,163,178,.14); color: var(--text-secondary); }
+    .badge.orange { background: var(--accent-blue-soft); color: var(--accent); }
+    .badge.green { background: var(--success-soft); color: var(--pos); }
+    .badge.red { background: var(--danger-soft); color: var(--neg); }
+    .badge.blue { background: var(--accent-blue-soft); color: var(--accent); }
+
+    /* Buttons */
+    .btn { background: var(--surface); color: var(--text-primary); border: 1px solid var(--border-hairline); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; transition: border-color .15s, color .15s, background .15s; }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color:#fff; }
+    .btn-danger { background: transparent; color: var(--neg); border-color: rgba(229,72,77,.4); }
+    .btn-danger:hover { background: var(--danger-soft); border-color: var(--neg); color: var(--neg); }
+    .btn-sm { padding: 4px 10px; font-size: 11px; }
+    .actions form { display:inline-block; margin: 0 0 0 6px; }
+
+    /* Settings */
+    .setting-row { display:flex; align-items:center; justify-content:space-between; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border-hairline); border-radius: 8px; margin-bottom: 12px; }
+    .setting-row .label { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+    .setting-row .value { font-size: 13px; color: var(--accent); font-weight: 600; margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+    .setting-row .desc { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+
+    /* Modal */
+    .modal-overlay { display:none; position:fixed; inset:0; background: rgba(0,0,0,.6); z-index: 200; align-items:center; justify-content:center; padding: 20px; }
+    .modal-overlay.show { display:flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border-hairline); border-radius: 10px; padding: 24px; width:100%; max-width: 420px; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+    .modal h3 { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 18px; }
+    .field { margin-bottom: 14px; }
+    .field label { display:block; font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; font-weight: 600; }
+    .field input { width:100%; padding: 9px 11px; background: var(--canvas); border: 1px solid var(--border-hairline); border-radius: 6px; color: var(--text-primary); font-size: 13px; outline:none; font-family: inherit; }
+    .field input:focus { border-color: var(--accent); }
+    .field .hint { font-size: 11px; color: var(--text-secondary); margin-top: 5px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top: 18px; }
+
+    /* Helpers */
+    .small { font-size: 11px; color: var(--text-secondary); }
+    .mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-variant-numeric: tabular-nums; }
+    .self-tag { font-size: 10px; color: var(--text-secondary); font-style: italic; }
+
+    /* Operations tab — embedded Mission Control DevOps (bare render) */
+    .admin-ops-frame { width:100%; height: calc(100vh - 240px); min-height: 520px; border: 1px solid var(--border-hairline); border-radius: 8px; background: var(--canvas); display:block; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="admin-topline">
+    <h1 class="admin-page-title">Admin</h1>
+    <span class="admin-tagchip">Console</span>
+    <div class="spacer"></div>
+    <span class="small">{{ current_user.email }}</span>
+</div>
+
+{% set messages = {
+    'plan-created': ('Plan created.', ''),
+    'plan-updated': ('Plan updated.', ''),
+    'plan-activated': ('Plan activated.', ''),
+    'plan-deactivated': ('Plan deactivated.', ''),
+    'plan-deleted': ('Plan deleted.', ''),
+    'plan-not-found': ('Plan not found.', 'warn'),
+    'qr-bad-ext': ('QR image must be PNG, JPG, JPEG, WEBP, or GIF.', 'warn'),
+    'qr-too-large': ('QR image is too large (max 2 MB).', 'warn'),
+    'settings-saved': ('Settings saved.', ''),
+    'admin-added': ('Admin added.', ''),
+    'admin-demoted': ('Admin demoted.', ''),
+    'device-approved': ('Device approved. The user can now sign in from it.', ''),
+    'device-rejected': ('Device rejected.', ''),
+    'device-not-found': ('Device not found or already handled.', 'warn'),
+    'subscription-assigned': ('Subscription assigned. User regains access on next page load.', ''),
+    'subscription-failed': ('Could not assign subscription (user or plan not found).', 'warn'),
+    'user-suspended': ('User suspended. They will be signed out on next request.', ''),
+    'user-unsuspended': ('User reinstated.', ''),
+    'user-expired': ('User access force-expired. They land on /subscribe on next page load.', ''),
+    'user-not-found': ('User not found (or admin user — admins can\'t be suspended/expired).', 'warn'),
+    'no-self-action': ('You can\'t do that to yourself.', 'warn'),
+    'payment-approved': ('Payment approved and plan activated for user.', ''),
+    'payment-rejected': ('Payment rejected.', ''),
+    'payment-not-found': ('Submission not found (it may have already been reviewed).', 'warn'),
+    'bad-input': ('Invalid input — try again.', 'warn'),
+    'no-self-demote': ('You can\'t demote yourself.', 'warn'),
+} %}
+{% if msg in messages %}
+    <div class="flash {{ messages[msg][1] }}">{{ messages[msg][0] }}</div>
+{% endif %}
+
+<nav class="tabs">
+    <button class="tab" data-tab="payments">Payments {% if pending_payments %}<span class="count" style="margin-left:6px;background:var(--accent-blue-soft);color:var(--accent);border-color:rgba(76,141,255,0.4)">{{ pending_payments|length }}</span>{% endif %}</button>
+    <button class="tab" data-tab="users">Users <span class="count" style="margin-left:6px">{{ users|length }}</span></button>
+    <button class="tab" data-tab="plans">Plans <span class="count" style="margin-left:6px">{{ plans|length }}</span></button>
+    <button class="tab" data-tab="settings">Settings</button>
+    <button class="tab" data-tab="admins">Admins <span class="count" style="margin-left:6px">{{ admins|length }}</span></button>
+    <button class="tab" data-tab="ops">Operations</button>
+</nav>
+
+<div class="container">
+
+    <!-- ====================== PAYMENTS ====================== -->
+    <section class="pane" data-pane="payments">
+        <div class="pane-head">
+            <h2>Payment submissions</h2>
+            <span class="count">{{ pending_payments|length }} awaiting review</span>
+        </div>
+        <div class="panel">
+        {% if pending_payments %}
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Plan</th>
+                    <th>UTR</th>
+                    <th>Screenshot</th>
+                    <th>Note</th>
+                    <th>Submitted</th>
+                    <th style="text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in pending_payments %}
+                <tr>
+                    <td class="col-email">{{ s.user_email }}<div class="small">{{ s.user_name }}</div></td>
+                    <td>
+                        {% if s.plan_name %}
+                            <div style="font-weight:500">{{ s.plan_name }}</div>
+                            <div class="small">&#8377;{{ s.plan_price }} / {{ s.plan_duration_days }}d</div>
+                        {% else %}
+                            <span class="badge red">Plan deleted</span>
+                        {% endif %}
+                    </td>
+                    <td class="mono" style="font-size:11.5px">{{ s.utr }}</td>
+                    <td>
+                        {% if s.screenshot_path %}
+                        <a href="{{ url_for('pages.serve_payment_screenshot', filename=s.screenshot_path.split('/',1)[-1]) }}" target="_blank">
+                            <img src="{{ url_for('pages.serve_payment_screenshot', filename=s.screenshot_path.split('/',1)[-1]) }}" alt="screenshot" style="width:42px;height:42px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">
+                        </a>
+                        {% else %}<span class="small">—</span>{% endif %}
+                    </td>
+                    <td class="small" style="max-width:200px;color:var(--text-secondary)">
+                        {% if s.note %}<span title="{{ s.note }}">{{ s.note[:80] }}{% if s.note|length > 80 %}…{% endif %}</span>{% else %}<span style="color:var(--muted)">—</span>{% endif %}
+                    </td>
+                    <td class="mono small">{{ s.submitted_at[:16].replace('T', ' ') }}</td>
+                    <td class="actions" style="text-align:right">
+                        <form method="POST" action="{{ url_for('admin.payments_approve', submission_id=s.id) }}"
+                              onsubmit="return confirm('Approve this payment? The {{ s.plan_name or '(deleted)' }} plan will be activated for {{ s.user_email }}.')">
+                            <button type="submit" class="btn btn-sm btn-primary"{% if not s.plan_id %} disabled title="Original plan was deleted — can't auto-assign"{% endif %}>Approve</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.payments_reject', submission_id=s.id) }}"
+                              onsubmit="return confirm('Reject this payment submission?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">No payments awaiting review.</div>
+        {% endif %}
+        </div>
+        <p class="small" style="margin-top:10px">Approving auto-activates the chosen plan for the user. Use the Users tab for manual subscription assignment.</p>
+    </section>
+
+    <!-- ====================== USERS ====================== -->
+    <section class="pane" data-pane="users">
+        <div class="pane-head">
+            <h2>Users</h2>
+            <span class="count">{{ users|length }} total</span>
+        </div>
+        <div class="panel">
+        {% if users %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Joined</th>
+                    <th>Access</th>
+                    <th>Plan</th>
+                    <th>Sub expires</th>
+                    <th style="text-align:right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for u in users %}
+                <tr>
+                    <td class="col-email">
+                        {{ u.email }}
+                        {% if u.is_admin %}<span class="badge blue" style="margin-left:6px">Admin</span>{% endif %}
+                    </td>
+                    <td class="mono">{{ u.created_at[:10] }}</td>
+                    <td>
+                        {% set s = u.trial.state %}
+                        <span class="badge {{ 'gray' if s=='admin' else 'orange' if s=='trial_active' else 'green' if s=='subscribed' else 'red' }}">{{ u.trial.label }}</span>
+                    </td>
+                    <td class="col-sub">{{ u.plan_name or '—' }}</td>
+                    <td class="col-sub mono">{{ (u.sub_expires_at or '—')[:10] }}</td>
+                    <td class="actions" style="text-align:right">
+                        {% if not u.is_admin %}
+                            {% if u.status == 'suspended' %}
+                                <span class="badge red" style="margin-right:6px">Suspended</span>
+                                <form method="POST" action="{{ url_for('admin.users_unsuspend', user_id=u.id) }}">
+                                    <button type="submit" class="btn btn-sm">Unblock</button>
+                                </form>
+                            {% else %}
+                                <button class="btn btn-sm btn-primary"
+                                        data-action="mark-paid"
+                                        data-user-id="{{ u.id }}"
+                                        data-user-email="{{ u.email }}"
+                                        {% if plans|length == 0 %}disabled title="Create a plan first in the Plans tab"{% endif %}>
+                                    Mark paid
+                                </button>
+                                {% if u.trial.state in ('subscribed', 'trial_active') %}
+                                <form method="POST" action="{{ url_for('admin.users_expire', user_id=u.id) }}"
+                                      onsubmit="return confirm('Force-expire access for {{ u.email }}? They will be redirected to /subscribe on next page load.')">
+                                    <button type="submit" class="btn btn-sm">Expire</button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('admin.users_suspend', user_id=u.id) }}"
+                                      onsubmit="return confirm('Suspend {{ u.email }}? They will be signed out and can\'t sign back in until you unblock them.')">
+                                    <button type="submit" class="btn btn-sm btn-danger">Block</button>
+                                </form>
+                            {% endif %}
+                        {% else %}
+                            <span class="self-tag">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">No users yet.</div>
+        {% endif %}
+        </div>
+    </section>
+
+
+    <!-- ====================== PLANS ====================== -->
+    <section class="pane" data-pane="plans">
+        <div class="pane-head">
+            <h2>Subscription plans</h2>
+            <span class="count">{{ plans|length }} total</span>
+            <div class="spacer" style="flex:1"></div>
+            <button class="btn btn-primary" onclick="openModal('modal-add-plan')">+ Add plan</button>
+        </div>
+        <div class="panel">
+        {% if plans %}
+        <table>
+            <thead><tr><th>Name</th><th>Duration</th><th>Price</th><th>UPI / QR</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody>
+            {% for p in plans %}
+                <tr>
+                    <td class="col-email">{{ p.name }}</td>
+                    <td class="mono">{{ p.duration_days }} days</td>
+                    <td class="mono">&#8377;{{ p.price_inr }}</td>
+                    <td class="col-sub">
+                        {% if p.upi_id %}<div class="mono" style="font-size:11px">{{ p.upi_id }}</div>{% endif %}
+                        {% if p.qr_image_path %}
+                        <a href="{{ url_for('pages.serve_qr', filename=p.qr_image_path.split('/',1)[-1]) }}" target="_blank">
+                            <img src="{{ url_for('pages.serve_qr', filename=p.qr_image_path.split('/',1)[-1]) }}" alt="QR" style="width:32px;height:32px;object-fit:cover;border-radius:4px;border:1px solid var(--border);margin-top:4px">
+                        </a>
+                        {% elif not p.upi_id %}<span class="small">—</span>{% endif %}
+                    </td>
+                    <td>{% if p.is_active %}<span class="badge green">Active</span>{% else %}<span class="badge gray">Inactive</span>{% endif %}</td>
+                    <td class="actions" style="text-align:right">
+                        <button class="btn btn-sm"
+                                data-action="edit-plan"
+                                data-id="{{ p.id }}"
+                                data-name="{{ p.name }}"
+                                data-duration="{{ p.duration_days }}"
+                                data-price="{{ p.price_inr }}"
+                                data-upi="{{ p.upi_id or '' }}"
+                                data-qr="{{ p.qr_image_path or '' }}">Edit</button>
+                        <form method="POST" action="{{ url_for('admin.plans_toggle', plan_id=p.id) }}">
+                            <button type="submit" class="btn btn-sm">{{ 'Deactivate' if p.is_active else 'Activate' }}</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.plans_delete', plan_id=p.id) }}"
+                              onsubmit="return confirm('Delete plan &quot;{{ p.name }}&quot; permanently? Any user subscribed to this plan will be detached (their existing access end-date is preserved).')">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty">No plans yet. Click <strong>+ Add plan</strong> to create one.</div>
+        {% endif %}
+        </div>
+    </section>
+
+    <!-- ====================== SETTINGS ====================== -->
+    <section class="pane" data-pane="settings">
+        <div class="pane-head"><h2>Settings</h2></div>
+        <div class="setting-row">
+            <div>
+                <div class="label">Free trial duration <span class="value">{{ trial_days }} days</span></div>
+                <div class="desc">Length of the free trial granted to a user on signup.</div>
+            </div>
+            <button class="btn" onclick="openModal('modal-edit-trial')">Edit</button>
+        </div>
+    </section>
+
+    <!-- ====================== ADMINS ====================== -->
+    <section class="pane" data-pane="admins">
+        <div class="pane-head">
+            <h2>Admins</h2>
+            <span class="count">{{ admins|length }} total</span>
+            <div class="spacer" style="flex:1"></div>
+            <button class="btn btn-primary" onclick="openModal('modal-add-admin')">+ Add admin</button>
+        </div>
+        <div class="panel">
+        <table>
+            <thead><tr><th>Email</th><th>Linked</th><th>Last login</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody>
+            {% for a in admins %}
+                <tr>
+                    <td class="col-email">{{ a.email }}</td>
+                    <td>{% if a.google_sub %}<span class="badge green">Yes</span>{% else %}<span class="badge gray">Awaits first login</span>{% endif %}</td>
+                    <td class="mono">{{ (a.last_login_at or '—')[:19] }}</td>
+                    <td class="actions" style="text-align:right">
+                        {% if a.id == current_user.id %}
+                            <span class="self-tag">(you)</span>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('admin.admins_demote', user_id=a.id) }}"
+                                  onsubmit="return confirm('Remove {{ a.email }} as admin? They will keep their account but lose admin rights.')">
+                                <button type="submit" class="btn btn-sm btn-danger">Demote</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </section>
+
+    <!-- ====================== OPERATIONS (embedded Mission Control DevOps) ====================== -->
+    <section class="pane" data-pane="ops">
+        <div class="pane-head">
+            <h2>System Operations</h2>
+            <span class="count">DevOps · live</span>
+        </div>
+        <p class="small" style="margin-bottom:12px">System Health · Governance &amp; Controls · Brokers &amp; Reconciliation · Traceability &amp; Compliance — the full Mission Control DevOps surface, embedded here.</p>
+        <iframe id="ops-frame" class="admin-ops-frame" data-src="/mission-control?embed=1" title="System Operations (Mission Control)"></iframe>
+    </section>
+
+</div>
+
+<!-- ===================== MODALS ===================== -->
+
+<div class="modal-overlay" id="modal-add-plan" onclick="if(event.target===this)closeModal(this.id)">
+    <div class="modal">
+        <h3>Add subscription plan</h3>
+        <form method="POST" action="{{ url_for('admin.plans_create') }}" enctype="multipart/form-data">
+            <div class="field"><label>Plan name</label><input name="name" placeholder="e.g. 1 Month" required autofocus></div>
+            <div class="field"><label>Duration (days)</label><input name="duration_days" type="number" min="1" max="3650" required></div>
+            <div class="field"><label>Price (&#8377; INR)</label><input name="price_inr" type="number" min="0" required></div>
+            <div class="field"><label>UPI ID (optional)</label><input name="upi_id" placeholder="yourname@bank"><div class="hint">Shown on the /subscribe page so users know where to pay.</div></div>
+            <div class="field"><label>Payment QR image (optional)</label><input name="qr_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><div class="hint">PNG / JPG / WEBP, max 2 MB. Displayed on /subscribe for this plan.</div></div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('modal-add-plan')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-plan" onclick="if(event.target===this)closeModal(this.id)">
+    <div class="modal">
+        <h3>Edit plan</h3>
+        <form method="POST" id="form-edit-plan" enctype="multipart/form-data">
+            <div class="field"><label>Plan name</label><input name="name" id="edit-plan-name" required></div>
+            <div class="field"><label>Duration (days)</label><input name="duration_days" id="edit-plan-duration" type="number" min="1" max="3650" required></div>
+            <div class="field"><label>Price (&#8377; INR)</label><input name="price_inr" id="edit-plan-price" type="number" min="0" required></div>
+            <div class="field"><label>UPI ID (optional)</label><input name="upi_id" id="edit-plan-upi" placeholder="yourname@bank"></div>
+            <div class="field">
+                <label>Payment QR image</label>
+                <div id="edit-plan-qr-preview" style="margin-bottom:8px;display:none">
+                    <img id="edit-plan-qr-img" alt="Current QR" style="height:80px;border:1px solid var(--border);border-radius:6px;background:#fff;padding:4px">
+                    <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--text-secondary);text-transform:none;letter-spacing:0">
+                        <input type="checkbox" name="clear_qr"> Remove current QR
+                    </label>
+                </div>
+                <input name="qr_image" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                <div class="hint">Upload to replace the current QR (max 2 MB).</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('modal-edit-plan')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-edit-trial" onclick="if(event.target===this)closeModal(this.id)">
+    <div class="modal">
+        <h3>Free trial duration</h3>
+        <form method="POST" action="{{ url_for('admin.settings_trial') }}">
+            <div class="field">
+                <label>Trial length (days)</label>
+                <input name="trial_duration_days" type="number" min="0" max="365" value="{{ trial_days }}" required autofocus>
+                <div class="hint">Set to 0 to disable the free trial (new users land on /subscribe immediately).</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('modal-edit-trial')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-admin" onclick="if(event.target===this)closeModal(this.id)">
+    <div class="modal">
+        <h3>Add admin</h3>
+        <form method="POST" action="{{ url_for('admin.admins_add') }}">
+            <div class="field">
+                <label>Email</label>
+                <input name="email" type="email" placeholder="someone@example.com" required autofocus>
+                <div class="hint">If this email hasn't signed in yet, a stub is created — they become admin on their first Google login.</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('modal-add-admin')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add admin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-mark-paid" onclick="if(event.target===this)closeModal(this.id)">
+    <div class="modal">
+        <h3>Mark paid &amp; assign plan</h3>
+        <form method="POST" id="form-mark-paid">
+            <div class="field">
+                <label>User</label>
+                <input id="mark-paid-email" type="text" disabled style="opacity:0.7">
+            </div>
+            <div class="field">
+                <label>Plan</label>
+                <select name="plan_id" required style="width:100%;padding:9px 11px;background:var(--canvas);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;outline:none">
+                    {% for p in plans if p.is_active %}
+                    <option value="{{ p.id }}">{{ p.name }} &mdash; {{ p.duration_days }}d / &#8377;{{ p.price_inr }}</option>
+                    {% endfor %}
+                </select>
+                <div class="hint">If the user has a non-expired subscription, days will be added on top of the existing expiry (no lost days for early renewals).</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="closeModal('modal-mark-paid')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Activate subscription</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const INITIAL_TAB = {{ tab|tojson }};
+
+    function showTab(name) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+        document.querySelectorAll('.pane').forEach(p => p.classList.toggle('active', p.dataset.pane === name));
+        // Lazy-load the embedded Mission Control DevOps surface only when Operations is first opened.
+        if (name === 'ops') {
+            const f = document.getElementById('ops-frame');
+            if (f && !f.getAttribute('src') && f.dataset.src) f.setAttribute('src', f.dataset.src);
+        }
+        const url = new URL(window.location);
+        url.searchParams.set('tab', name);
+        url.searchParams.delete('msg');
+        window.history.replaceState({}, '', url);
+    }
+
+    document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => showTab(t.dataset.tab));
+    });
+
+    showTab(INITIAL_TAB);
+
+    function openModal(id) {
+        document.getElementById(id).classList.add('show');
+    }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('show');
+    }
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    });
+
+    // Wire edit-plan buttons
+    document.querySelectorAll('[data-action="edit-plan"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.dataset.id;
+            document.getElementById('form-edit-plan').action = '/admin/plans/' + id + '/edit';
+            document.getElementById('edit-plan-name').value = btn.dataset.name;
+            document.getElementById('edit-plan-duration').value = btn.dataset.duration;
+            document.getElementById('edit-plan-price').value = btn.dataset.price;
+            document.getElementById('edit-plan-upi').value = btn.dataset.upi || '';
+            const qr = btn.dataset.qr || '';
+            const previewWrap = document.getElementById('edit-plan-qr-preview');
+            const previewImg = document.getElementById('edit-plan-qr-img');
+            const clearCheckbox = document.querySelector('#form-edit-plan input[name="clear_qr"]');
+            if (qr) {
+                previewWrap.style.display = 'block';
+                previewImg.src = '/uploads/' + qr;  // qr is stored as 'qr/<filename>'
+                if (clearCheckbox) clearCheckbox.checked = false;
+            } else {
+                previewWrap.style.display = 'none';
+            }
+            openModal('modal-edit-plan');
+        });
+    });
+
+    // Wire mark-paid buttons
+    document.querySelectorAll('[data-action="mark-paid"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.getElementById('form-mark-paid').action = '/admin/users/' + btn.dataset.userId + '/subscribe';
+            document.getElementById('mark-paid-email').value = btn.dataset.userEmail;
+            openModal('modal-mark-paid');
+        });
+    });
+</script>
+{% endblock %}

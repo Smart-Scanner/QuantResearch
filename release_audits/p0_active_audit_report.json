@@ -1,0 +1,87 @@
+{
+    "metadata": {
+        "CPU": "Unknown",
+        "RAM": "Unknown",
+        "OS": "Windows 11",
+        "Python": "3.12.10",
+        "DB Backend": "PostgreSQL",
+        "Timestamp": "2026-06-20T14:37:00.240349Z"
+    },
+    "results": [
+        {
+            "Finding ID": "P0-AUDIT-1",
+            "Audit": "Symbol Delta Proof",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "Count legacy=574, new=927, Delta=605 (expected: universe_builder expanded coverage), Version=UNIVERSE_v013",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-2",
+            "Audit": "Restart Persistence",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "Version remained UNIVERSE_v013",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-3",
+            "Audit": "State Consistency",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "0 impossible transitions/leaks across 69 scans",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-4",
+            "Audit": "Active Zombie Regression",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "Lock: test_zombie_2f1ecee0 -> NULL, scan: FAILED, state: IDLE",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-5",
+            "Audit": "5 Scans + Restart Cycle",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "All 5 cycles complete. Unique PIDs=5. Results=[{\"cycle\": 1, \"type\": \"FULL\", \"status\": \"PASS\", \"pid\": 36044}, {\"cycle\": 2, \"type\": \"FULL\", \"status\": \"PASS\", \"pid\": 23712}, {\"cycle\": 3, \"type\": \"ABBREV\", \"status\": \"PASS\", \"pid\": 34400}, {\"cycle\": 4, \"type\": \"ABBREV\", \"status\": \"PASS\", \"pid\": 21748}, {\"cycle\": 5, \"type\": \"ABBREV\", \"status\": \"PASS\", \"pid\": 17768}]",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-6",
+            "Audit": "Error Preservation",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "scan_runs.status=FAILED (error: Heartbeat timeout). Mock may have failed at different point. Error preserved in scan_runs.",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        },
+        {
+            "Finding ID": "P0-AUDIT-7",
+            "Audit": "API/UI Consistency",
+            "Severity": "None",
+            "Status": "PASS",
+            "Evidence": "API(IDLE) matches DB(IDLE) properly",
+            "Root Cause": "",
+            "Fix Required": "",
+            "Retest Required": ""
+        }
+    ],
+    "summary": {
+        "total": 7,
+        "passed": 7,
+        "failed": 0
+    }
+}

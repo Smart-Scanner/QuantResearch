@@ -1,0 +1,370 @@
+{% extends "_app_base.html" %}
+{% set active_page = "dashboard" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    /* Dashboard page CSS — tokens only; reuses v3.css variables (do not edit v3.css). */
+
+    /* Market Participation: fixed 320px sidebar collapses to a stacked column
+       so it never overflows on narrow / mobile viewports. */
+    @media (max-width: 900px) {
+        .dash-breadth-grid { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 420px) {
+        /* Number-is-hero: keep the A/D ratio stacked above its chart at 390px. */
+        .dash-breadth-primary { flex-direction: column; align-items: flex-start !important; gap: 12px !important; }
+        .dash-breadth-primary > div:last-child { width: 100%; }
+    }
+
+    /* Model Performance forces 5 columns on desktop; step down gracefully so
+       the five KPI numbers never overflow their row on smaller screens. */
+    @media (max-width: 1100px) {
+        .dash-perf-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+    @media (max-width: 640px) {
+        .dash-perf-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    }
+    @media (max-width: 420px) {
+        .dash-perf-grid { grid-template-columns: 1fr !important; }
+    }
+
+    /* Sector rotation quadrants already wrap; ensure each column can shrink
+       to a single stacked block without horizontal overflow at 390px. */
+    @media (max-width: 480px) {
+        #sectorRotationContainer > div { min-width: 100% !important; }
+    }
+</style>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
+    <div class="v3-page-header">
+        <div class="v3-page-title">Dashboard</div>
+        <div class="v3-page-subtitle">Market overview and research intelligence</div>
+    </div>
+    <!-- System Status Widget -->
+    <div class="v3-kpi-card" id="systemStatusWidget" style="flex:1 1 210px;min-width:210px;max-width:100%;padding:14px 18px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-3.46 2.05l-.06-.06a1.65 1.65 0 0 0-2.82 1.18V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51A1.65 1.65 0 0 0 6.68 19.4l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.17 14.75a1.65 1.65 0 0 0-1.51-1.08H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9A1.65 1.65 0 0 0 10.08 3.17V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1.08 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1.08H21a2 2 0 0 1 0 4h-.09"/></svg>
+            Research Engine
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12px">
+            <span style="color:var(--text-muted)">Scored / Universe</span>
+            <span style="color:var(--text-primary);font-weight:600;text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums" id="sysUniverse">&#8212;</span>
+            <span style="color:var(--text-muted)">Last Scan</span>
+            <span style="color:var(--text-primary);font-weight:600;text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums" id="sysLastScan">&#8212;</span>
+            <span style="color:var(--text-muted)">Market</span>
+            <span style="font-weight:600;text-align:right" id="sysMarket">&#8212;</span>
+            <span style="color:var(--text-muted)">Model</span>
+            <span style="color:var(--text-primary);font-weight:600;text-align:right;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums" id="sysModel">R2.1</span>
+            <span style="color:var(--text-muted)">Outcome DB</span>
+            <span style="color:var(--success);font-weight:600;text-align:right" id="sysOutcome">Active</span>
+        </div>
+    </div>
+</div>
+
+<!-- Loading State: content-shaped skeletons (not a spinner) -->
+<div id="dashboardLoading">
+    <div class="v3-kpi-grid" style="margin-bottom:28px">
+        <div class="qr-skel qr-skel-kpi"></div><div class="qr-skel qr-skel-kpi"></div>
+        <div class="qr-skel qr-skel-kpi"></div><div class="qr-skel qr-skel-kpi"></div>
+        <div class="qr-skel qr-skel-kpi"></div><div class="qr-skel qr-skel-kpi"></div>
+    </div>
+    <div class="qr-skel qr-skel-row" style="margin-bottom:16px"></div>
+    <div class="qr-skel" style="height:200px"></div>
+</div>
+
+<!-- Dashboard Content (hidden until loaded) -->
+<div id="dashboardContent" style="display:none">
+
+    <!-- Section 1: KPI Hero Band (numbers first — the heroes) -->
+    <div class="v3-section">
+        <div class="v3-kpi-grid" id="kpiGrid">
+            <div class="v3-kpi-card"><div class="v3-kpi-label">Market Regime</div><div class="v3-kpi-value" id="kpiRegime" style="font-size:24px">&#8212;</div></div>
+            <div class="v3-kpi-card"><div class="v3-kpi-label">Stocks Scored</div><div class="v3-kpi-value" id="kpiUniverse">&#8212;</div></div>
+            <div class="v3-kpi-card"><div class="v3-kpi-label">High Conviction</div><div class="v3-kpi-value" id="kpiHC" style="color:var(--accent)">&#8212;</div></div>
+            <div class="v3-kpi-card"><div class="v3-kpi-label">Golden Stocks</div><div class="v3-kpi-value" id="kpiGolden" style="color:var(--golden)">&#8212;</div></div>
+            <div class="v3-kpi-card"><div class="v3-kpi-label">Win Rate</div><div class="v3-kpi-value" id="kpiWinRate" style="color:var(--success)">&#8212;</div></div>
+            <div class="v3-kpi-card"><div class="v3-kpi-label">Alpha vs Nifty</div><div class="v3-kpi-value" id="kpiAlpha">&#8212;</div></div>
+        </div>
+    </div>
+
+    <!-- Section 2: Market Participation -->
+    <div class="v3-section">
+        <div class="v3-section-header">
+            <div class="v3-section-title">Market Participation</div>
+        </div>
+        <div class="dash-breadth-grid" style="display:grid;grid-template-columns:1fr 320px;gap:16px">
+            <div class="v3-kpi-card dash-breadth-primary" style="display:flex;align-items:center;gap:24px;padding:18px 22px">
+                <div>
+                    <div class="v3-kpi-label">A/D Ratio</div>
+                    <div class="v3-kpi-value" id="breadthRatio" style="font-size:34px">&#8212;</div>
+                </div>
+                <div style="flex:1"><canvas id="breadthChart" height="80"></canvas></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Advances</div><div class="v3-kpi-value text-success" id="breadthAdv" style="font-size:22px">&#8212;</div></div>
+                <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Declines</div><div class="v3-kpi-value text-danger" id="breadthDec" style="font-size:22px">&#8212;</div></div>
+                <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Unchanged</div><div class="v3-kpi-value text-muted" id="breadthUnch" style="font-size:22px">&#8212;</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 3: Opportunity Heatmap -->
+    <div class="v3-section">
+        <div class="v3-section-header">
+            <div>
+                <div class="v3-section-title">Opportunity Heatmap</div>
+                <div class="v3-section-subtitle">Click to explore each category</div>
+            </div>
+        </div>
+        <div class="v3-heatmap-grid">
+            <a href="/golden" class="v3-heatmap-cell" style="text-decoration:none">
+                <span class="v3-heatmap-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+                <div class="v3-heatmap-count" id="heatGolden" style="color:var(--golden)">&#8212;</div>
+                <div class="v3-heatmap-label">Golden</div>
+            </a>
+            <a href="/hc" class="v3-heatmap-cell" style="text-decoration:none">
+                <span class="v3-heatmap-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+                <div class="v3-heatmap-count" id="heatHC" style="color:var(--accent)">&#8212;</div>
+                <div class="v3-heatmap-label">High Conviction</div>
+            </a>
+            <a href="/breakouts" class="v3-heatmap-cell" style="text-decoration:none">
+                <span class="v3-heatmap-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+                <div class="v3-heatmap-count" id="heatBreakout" style="color:var(--accent)">&#8212;</div>
+                <div class="v3-heatmap-label">Breakouts</div>
+            </a>
+            <a href="/top-picks" class="v3-heatmap-cell" style="text-decoration:none">
+                <span class="v3-heatmap-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                <div class="v3-heatmap-count" id="heatUnderdog" style="color:var(--success)">&#8212;</div>
+                <div class="v3-heatmap-label">Underdogs</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Section 4: Research Priorities -->
+    <div class="v3-section">
+        <div class="v3-section-header">
+            <div>
+                <div class="v3-section-title">Research Priorities</div>
+                <div class="v3-section-subtitle">Top-ranked across different research dimensions</div>
+            </div>
+        </div>
+        <div class="v3-opportunity-grid" id="researchPriorities"></div>
+    </div>
+
+    <!-- Section 5: Sector Rotation -->
+    <div class="v3-section">
+        <div class="v3-section-header">
+            <div class="v3-section-title">Sector Rotation</div>
+        </div>
+        <div class="v3-kpi-card" style="padding:24px">
+            <div id="sectorRotationContainer" style="display:flex;gap:20px;flex-wrap:wrap"></div>
+        </div>
+    </div>
+
+    <!-- Section 6: Model Performance -->
+    <div class="v3-section">
+        <div class="v3-section-header">
+            <div>
+                <div class="v3-section-title">Model Performance</div>
+                <div class="v3-section-subtitle">Paper trading outcomes and model calibration</div>
+            </div>
+            <a href="/outcome" class="v3-action-btn" style="text-decoration:none">View Full Analytics &#8594;</a>
+        </div>
+        <div class="v3-kpi-grid dash-perf-grid" id="perfGrid" style="grid-template-columns:repeat(5, 1fr)">
+            <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Total Trades</div><div class="v3-kpi-value" id="perfTotalTrades">&#8212;</div></div>
+            <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Win Rate</div><div class="v3-kpi-value" id="perfWinRate" style="color:var(--success)">&#8212;</div></div>
+            <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Profit Factor</div><div class="v3-kpi-value" id="perfPF">&#8212;</div></div>
+            <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Expectancy</div><div class="v3-kpi-value" id="perfExpectancy">&#8212;</div></div>
+            <div class="v3-kpi-card" style="text-align:center"><div class="v3-kpi-label">Alpha vs Nifty</div><div class="v3-kpi-value" id="perfAlpha">&#8212;</div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const loadingEl = document.getElementById('dashboardLoading');
+const contentEl = document.getElementById('dashboardContent');
+let _breadthChart = null;
+let _breadthObserver = null;
+
+// Null-safe text setter (avoids throwing if an element was removed in a layout change).
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+function confBadge(score) {
+    const level = score >= 80 ? 'high' : score >= 50 ? 'medium' : 'low';
+    return `<div class="v3-confidence ${level}" style="margin-top:4px"><span class="v3-confidence-dot"></span>${Math.round(score)}% ${level.toUpperCase()}</div>`;
+}
+
+function calcConfidence(s) {
+    const tech100 = Math.min(100, (s.technical_score || 0) / 30 * 100);
+    const earn100 = Math.min(100, (s.earnings_momentum_score || 0) / 15 * 100);
+    const sm100 = s.smart_money_100 || Math.min(100, (s.smart_money_score || 0) / 10 * 100);
+    const fund100 = Math.min(100, (s.fundamental_score || 0) / 10 * 100);
+    const conf = Math.round(Math.min(100, Math.max(0, tech100 * 0.30 + earn100 * 0.25 + sm100 * 0.25 + fund100 * 0.20)));
+    // scoring_v1 doesn't populate the legacy factor breakdown; fall back to composite score.
+    if (conf < 5 && (s.score || 0) > 5) return Math.round(s.score || 0);
+    return conf;
+}
+
+function scoreBadge(score) {
+    const cls = score >= 80 ? 'excellent' : score >= 65 ? 'good' : score >= 50 ? 'average' : 'poor';
+    return `<div class="v3-score ${cls}">${score}</div>`;
+}
+
+function sigText(sig) {
+    if (Array.isArray(sig)) return sig[0] || '';
+    return typeof sig === 'string' ? sig : String(sig);
+}
+
+async function loadPageData() {
+    try {
+        const res = await fetch(QR.url('/api/dashboard'));
+        const data = await res.json();
+        const status = data.status || {};
+        const results = data.results || [];
+        const stockCount = data.total_analyzed || results.length || 0;
+        const sectorData = data.sector_rotation || {};
+        const paperStats = data.paper_stats || {};
+        const regime = (status.market_regime || 'Unknown').toUpperCase();
+        const isLive = typeof isMarketOpen === 'function' ? isMarketOpen() : false;
+        const lastScanRaw = status.last_scan || '—';
+        const lastScanParts = String(lastScanRaw).split(' ');
+        const lastScan = lastScanParts.length >= 2 ? lastScanParts[1] : lastScanRaw;
+
+        const regimeEl = document.getElementById('kpiRegime');
+        regimeEl.textContent = regime;
+        regimeEl.style.color = regime.includes('BULL') ? 'var(--success)' : regime.includes('BEAR') ? 'var(--danger)' : 'var(--warning)';
+        setText('kpiUniverse', stockCount);
+        setText('sysUniverse', `${stockCount} / ${data.universe_size || stockCount}`);
+        setText('sysLastScan', lastScan);
+        const sysMarketEl = document.getElementById('sysMarket');
+        if (sysMarketEl) { sysMarketEl.textContent = isLive ? 'Open' : 'Closed'; sysMarketEl.style.color = isLive ? 'var(--success)' : 'var(--danger)'; }
+
+        if (results.length > 0) {
+            // Breadth from the LIVE feed (scan rows carry no intraday change).
+            let adv = 0, dec = 0;
+            try {
+                const _lpr = await fetch('/api/live-prices');
+                if (_lpr.ok) {
+                    const _lp = await _lpr.json();
+                    results.forEach(s => {
+                        const d = _lp[s.symbol] || _lp[(s.symbol || '').replace('.NS', '')];
+                        if (d && typeof d.change_pct === 'number') { if (d.change_pct > 0) adv++; else if (d.change_pct < 0) dec++; }
+                    });
+                }
+            } catch (e) { /* breadth stays 0 if feed unavailable */ }
+            const unch = Math.max(0, results.length - adv - dec);
+            const ratio = dec > 0 ? (adv/dec).toFixed(2) : adv > 0 ? '∞' : '1.00';
+            const hc = results.filter(s => s.high_conviction);
+            const golden = results.filter(s => s.is_golden);
+            const breakouts = results.filter(s => (s.signals||[]).some(sig => sigText(sig).toLowerCase().includes('breakout')));
+            const underdogs = results.filter(s => (s.score||0) >= 55 && (s.score||0) < 70);
+
+            setText('kpiHC', hc.length);
+            setText('kpiGolden', golden.length);
+            setText('heatGolden', golden.length);
+            setText('heatHC', hc.length);
+            setText('heatBreakout', breakouts.length);
+            setText('heatUnderdog', underdogs.length);
+            setText('breadthRatio', ratio);
+            setText('breadthAdv', adv);
+            setText('breadthDec', dec);
+            setText('breadthUnch', unch);
+
+            const sorted = [...results].sort((a,b) => (b.score||0)-(a.score||0));
+            const priorities = [
+                { type: 'Top Ranked', stock: sorted[0] },
+                { type: 'Best Earnings', stock: [...results].sort((a,b) => (b.earnings_momentum_score||0)-(a.earnings_momentum_score||0))[0] },
+                { type: 'Smart Money', stock: [...results].sort((a,b) => (b.smart_money_score||0)-(a.smart_money_score||0))[0] },
+                { type: 'Best Risk:Reward', stock: [...results].sort((a,b) => (b.risk_reward||0)-(a.risk_reward||0))[0] },
+                { type: 'Sector Leader', stock: [...results].sort((a,b) => (b.sector_rotation_score||0)-(a.sector_rotation_score||0))[0] },
+            ].filter(c => c.stock);
+
+            const rpEl = document.getElementById('researchPriorities');
+            if (rpEl) rpEl.innerHTML = priorities.map(c => {
+                const s = c.stock; const conf = calcConfidence(s);
+                const rrStr = s.risk_reward ? '1:' + s.risk_reward.toFixed(1) : '';
+                return `<div class="v3-opportunity-card" onclick="window.location.href='/symbol/' + encodeURIComponent(('${s.symbol}' || '').toUpperCase())">
+                    <div class="v3-opportunity-type">${c.type}</div>
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                        <div><div class="v3-opportunity-symbol">${s.symbol}</div><div class="v3-opportunity-detail">${s.sector || ''}</div></div>
+                        <div style="text-align:right">${scoreBadge(s.score||0)}${confBadge(conf)}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+                        ${s.target_price ? `<span style="font-size:11px;color:var(--text-muted)">Target ₹${s.target_price.toFixed(0)}</span>` : ''}
+                        ${rrStr ? `<span style="font-size:11px;color:var(--text-muted)">R:R ${rrStr}</span>` : ''}
+                        ${s.is_golden ? '<span class="v3-signal-pill golden" style="font-size:10px;padding:1px 6px"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Golden</span>' : ''}
+                        ${s.high_conviction ? '<span class="v3-signal-pill hc" style="font-size:10px;padding:1px 6px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>HC</span>' : ''}
+                    </div></div>`;
+            }).join('');
+
+            // Breadth chart (lazy, lifecycle-cleaned)
+            const bCtx = document.getElementById('breadthChart');
+            if (bCtx && typeof Chart !== 'undefined') {
+                if (_breadthChart) { _breadthChart.destroy(); _breadthChart = null; }
+                if (_breadthObserver) { _breadthObserver.disconnect(); _breadthObserver = null; }
+                _breadthObserver = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting) {
+                        // Read live theme tokens so the chart tracks dark/light (never hardcode hex).
+                        const cs = getComputedStyle(document.documentElement);
+                        const cPos = cs.getPropertyValue('--pos').trim() || '#2FB67A';
+                        const cNeg = cs.getPropertyValue('--neg').trim() || '#E5484D';
+                        const cMuted = cs.getPropertyValue('--text-tertiary').trim() || '#646D7C';
+                        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        _breadthChart = new Chart(bCtx, { type:'bar', data:{labels:['Advances','Declines','Unchanged'], datasets:[{data:[adv,dec,unch], backgroundColor:[cPos,cNeg,cMuted], borderRadius:4, barThickness:28}]}, options:{responsive:true, maintainAspectRatio:false, animation: reduceMotion ? false : {duration:250}, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false},ticks:{color:cMuted,font:{size:10,weight:600}}},y:{display:false}}} });
+                        _breadthObserver.disconnect();
+                    }
+                }, {threshold:0.1});
+                _breadthObserver.observe(bCtx);
+            }
+        }
+
+        // Sector rotation
+        if (sectorData.sectors && sectorData.sectors.length) {
+            const quadrants = { Leading:[], Improving:[], Weakening:[], Lagging:[] };
+            sectorData.sectors.forEach(s => { if(quadrants[s.quadrant]) quadrants[s.quadrant].push(s); });
+            const colors = {Leading:'var(--success)',Improving:'var(--accent)',Weakening:'var(--warning)',Lagging:'var(--danger)'};
+            const srEl = document.getElementById('sectorRotationContainer');
+            if (srEl) srEl.innerHTML = Object.entries(quadrants).map(([q,secs]) => `
+                <div style="flex:1;min-width:180px">
+                    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:${colors[q]};margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid ${colors[q]}">${q} (${secs.length})</div>
+                    ${secs.length ? secs.map(s=>`<div style="font-size:12px;color:var(--text-secondary);padding:5px 0;display:flex;justify-content:space-between;border-bottom:1px solid var(--border-subtle)"><span>${s.sector}</span><span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums">${s.momentum?s.momentum.toFixed(1):''}</span></div>`).join('') : '<div style="font-size:12px;color:var(--text-muted);padding:8px 0">None</div>'}
+                </div>`).join('');
+        }
+
+        // Paper stats
+        if (paperStats && !paperStats.error) {
+            const wr = paperStats.win_rate||0, pf = paperStats.profit_factor, exp = paperStats.expectancy||0, alp = paperStats.avg_alpha_pct||0;
+            setText('perfTotalTrades', paperStats.total_trades||0);
+            setText('perfWinRate', wr > 0 ? wr.toFixed(1)+'%' : '—');
+            // profit_factor is null/None for an all-winners book (undefined ratio) -> show infinity, not 0.
+            setText('perfPF', (pf === null || pf === undefined) ? (paperStats.closed_trades > 0 ? '∞' : '—') : (pf > 0 ? pf.toFixed(2) : '—'));
+            setText('perfExpectancy', exp !== 0 ? (exp>0?'+':'')+exp.toFixed(2)+'%' : '—');
+            const alpEl = document.getElementById('perfAlpha');
+            if (alpEl) { alpEl.textContent = alp !== 0 ? (alp>0?'+':'')+alp.toFixed(2)+'%' : '—'; alpEl.style.color = alp>0?'var(--success)':alp<0?'var(--danger)':''; }
+            setText('kpiWinRate', wr > 0 ? wr.toFixed(1)+'%' : '—');
+            const kAlp = document.getElementById('kpiAlpha');
+            if (kAlp) { kAlp.textContent = alp !== 0 ? (alp>0?'+':'')+alp.toFixed(1)+'%' : '—'; kAlp.style.color = alp>0?'var(--success)':alp<0?'var(--danger)':''; }
+        }
+
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+
+        // Live partial results: re-poll while a scan is IN PROGRESS (single-flight guard).
+        if (status.scanning) {
+            if (!window._v3ScanPoll) {
+                window._v3ScanPoll = setTimeout(function() { window._v3ScanPoll = null; loadPageData(); }, 7000);
+            }
+        } else if (window._v3ScanPoll) {
+            clearTimeout(window._v3ScanPoll);
+            window._v3ScanPoll = null;
+        }
+    } catch(err) {
+        loadingEl.innerHTML = `<div class="v3-empty-state"><div class="v3-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div class="v3-empty-title">Failed to Load</div><div class="v3-empty-desc">${err.message}. Click refresh to retry.</div></div>`;
+    }
+}
+loadPageData();
+</script>
+{% endblock %}

@@ -1,0 +1,780 @@
+{% extends "_app_base.html" %}
+{% block title %}{{ symbol }} — QuantResearch{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/symbol-workspace.css') }}?v=3">
+{% endblock %}
+
+{% block content %}
+<script>window.__QR_USER_ID = '{{ user.id if user else "anonymous" }}';</script>
+
+<a href="/top-picks" class="sd-back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+    Back to Top Picks
+</a>
+
+<!-- ── Header ─────────────────────────────────────────────── -->
+<div class="sd-header" id="sdHeader">
+    <div>
+        <div class="sd-symbol" id="sdSymbol">{{ symbol }}</div>
+        <div class="sd-meta">
+            <span class="sd-sector" id="sdSector"><span class="sd-skel sd-skel-line" style="width:64px"></span></span>
+            <span class="sd-badge sd-badge-hc" id="sdBadgeHC" style="display:none">High Conviction</span>
+            <span class="sd-badge sd-badge-golden" id="sdBadgeGolden" style="display:none">Golden</span>
+            <span class="sd-chip" id="sdRegimeChip" style="display:none"><span class="sd-chip-dot"></span><span id="sdRegimeText">—</span></span>
+        </div>
+    </div>
+    <div class="sd-price-block">
+        <div class="sd-price" id="sdPrice"><span class="sd-skel sd-skel-line" style="width:110px;height:22px"></span></div>
+        <div class="sd-change" id="sdChange"></div>
+        <div id="sdCmpTag"></div>
+    </div>
+</div>
+
+<!-- ── Price Chart (TradingView Lightweight Charts, self-rendered) ────────────
+     Candles come from /api/stock/ohlc (Yahoo .NS intraday, server-cached, EOD fallback):
+     TradingView's free embed has no NSE data and no broker offers a drop-in widget, so we
+     self-render — which lets us draw OUR engine-aware entry/SL/target levels ON the chart.
+     Intraday timeframes (5m/15m/1H) + daily; the same chart on all 3 engines, only the
+     levels differ per engine. -->
+<div class="sd-chart-row">
+    <div class="sd-chart-container" id="mainChartContainer">
+        <div class="sd-chart-toolbar" id="sdChartToolbar">
+            <button type="button" class="sd-tf-btn" data-tf="5m">5m</button>
+            <button type="button" class="sd-tf-btn" data-tf="15m">15m</button>
+            <button type="button" class="sd-tf-btn" data-tf="60m">1H</button>
+            <button type="button" class="sd-tf-btn active" data-tf="1d">1D</button>
+            <span class="sd-chart-src" id="sdChartSrc"></span>
+        </div>
+        <div id="tvChartWidget" style="height:100%;width:100%"></div>
+        <div class="sd-chart-legend">
+            <span class="sd-leg"><span class="sd-leg-mark entry"></span>Entry</span>
+            <span class="sd-leg"><span class="sd-leg-mark sl"></span>Stop</span>
+            <span class="sd-leg"><span class="sd-leg-mark tg"></span>Targets</span>
+        </div>
+        <div class="sd-chart-empty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            <span>Price history unavailable</span>
+        </div>
+    </div>
+</div>
+
+<!-- ── Grid: Left (Score + Trade) / Right (Radar + detail) ── -->
+<div class="sd-grid">
+    <!-- LEFT -->
+    <div>
+        <!-- Score Hero (arc gauge) -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-6"/><path d="M6 20V10"/><path d="M18 20V4"/></svg>
+                <h3>Composite Score</h3>
+            </div>
+            <div class="sd-hero">
+                <div class="sd-gauge-wrap">
+                    <svg class="sd-gauge" viewBox="0 0 200 130" role="img" aria-label="Composite score gauge">
+                        <path class="sd-gauge-track" id="sdGaugeTrack" d=""/>
+                        <path class="sd-gauge-fill" id="sdGaugeFill" d="" stroke-dasharray="1" stroke-dashoffset="1"/>
+                    </svg>
+                    <div class="sd-gauge-center">
+                        <div class="sd-gauge-num" id="sdScore">—</div>
+                        <div class="sd-gauge-grade" id="sdGrade">—</div>
+                        <div class="sd-gauge-cap">/ 100</div>
+                    </div>
+                </div>
+                <div class="sd-tier-row">
+                    <div class="sd-tier">
+                        <div class="sd-tier-label">Data Integrity</div>
+                        <div class="sd-tier-val" id="sdIntegrity"><span class="sd-chip-dot"></span><span>—</span></div>
+                    </div>
+                    <div class="sd-tier">
+                        <div class="sd-tier-label">Signal Agreement</div>
+                        <div class="sd-tier-val" id="sdAgreement"><span class="sd-chip-dot"></span><span>—</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Setup -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 4-5"/></svg>
+                <h3>Trade Setup</h3>
+            </div>
+            <div class="sd-panel-body">
+                <div class="sd-overext" id="sdOverext" style="display:none">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    <span id="sdOverextText"></span>
+                </div>
+                <div id="sdTradeLevels">
+                    <div class="sd-level"><span class="sd-level-label">Entry Band</span><span class="sd-level-r"></span><span class="sd-level-value accent" id="sdEntry">—</span></div>
+                    <div class="sd-level"><span class="sd-level-label">Stop Loss</span><span class="sd-level-r" id="sdSLpct"></span><span class="sd-level-value neg" id="sdSL">—</span></div>
+                    <div class="sd-level"><span class="sd-level-label">Target 1</span><span class="sd-level-r" id="sdT1r"></span><span class="sd-level-value pos" id="sdT1">—</span></div>
+                    <div class="sd-level"><span class="sd-level-label">Target 2</span><span class="sd-level-r" id="sdT2r"></span><span class="sd-level-value pos" id="sdT2">—</span></div>
+                    <div class="sd-level"><span class="sd-level-label">Target 3</span><span class="sd-level-r" id="sdT3r"></span><span class="sd-level-value pos" id="sdT3">—</span></div>
+                    <div class="sd-level sd-level-rr"><span class="sd-level-label">Risk : Reward</span><span class="sd-level-r"></span><span class="sd-level-value" id="sdRR">—</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Factor Stats (compact) -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="14" y="7" width="3" height="10"/></svg>
+                <h3>Factor Stats</h3>
+            </div>
+            <div class="sd-panel-body">
+                <div class="sd-kv">
+                    <span class="sd-kv-label">RSI (14)</span><span class="sd-kv-value" id="sdRSI">—</span>
+                    <span class="sd-kv-label">ADX</span><span class="sd-kv-value" id="sdADX">—</span>
+                    <span class="sd-kv-label">MACD Hist</span><span class="sd-kv-value" id="sdMACD">—</span>
+                    <span class="sd-kv-label">ATR</span><span class="sd-kv-value" id="sdATR">—</span>
+                    <span class="sd-kv-label">Weekly Trend</span><span class="sd-kv-value" id="sdTrend">—</span>
+                    <span class="sd-kv-label">1W / 1M</span><span class="sd-kv-value" id="sdPct">—</span>
+                    <span class="sd-kv-label">52W Range</span><span class="sd-kv-value" id="sd52w">—</span>
+                    <span class="sd-kv-label">Earnings Mom.</span><span class="sd-kv-value" id="sdEarnMom">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+        <!-- Factor DNA Radar -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+                <h3>Factor DNA</h3>
+                <span class="sd-head-aside" id="sdRadarMode"></span>
+            </div>
+            <div class="sd-panel-body">
+                <div class="sd-radar-wrap">
+                    <div class="sd-radar-box">
+                        <svg class="sd-radar-svg" id="sdRadarSvg" viewBox="-16 -8 272 256" role="img" aria-label="Factor DNA radar">
+                            <g id="sdRadarGrid"></g>
+                            <polygon class="sd-radar-poly" id="sdRadarPoly" points="" style="display:none"></polygon>
+                            <g id="sdRadarVtx"></g>
+                            <g id="sdRadarLabels"></g>
+                        </svg>
+                    </div>
+                    <table class="sd-radar-table" id="sdRadarTable" aria-label="Factor scores">
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Thesis / Summary -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                <h3>Thesis</h3>
+            </div>
+            <div class="sd-panel-body">
+                <div class="sd-summary" id="sdSummary"><span class="sd-skel sd-skel-line" style="width:90%"></span><span class="sd-skel sd-skel-line" style="width:70%"></span></div>
+                <div class="sd-driver-row" id="sdDrivers"></div>
+            </div>
+        </div>
+
+        <!-- Earnings + Fundamentals (collapsible) -->
+        <div class="sd-panel" id="sdFinPanel">
+            <div class="sd-collapse-head" id="sdFinToggle" role="button" tabindex="0" aria-expanded="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <h3>Earnings &amp; Fundamentals</h3>
+                <span class="sd-health" id="sdFinHealth"></span>
+                <svg class="sd-collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="sd-collapse-body">
+                <div class="sd-fund-grid" id="sdFundGrid"></div>
+                <div id="sdQuarterly"><span class="sd-empty">Loading financials…</span></div>
+            </div>
+        </div>
+
+        <!-- News traffic-light -->
+        <div class="sd-panel">
+            <div class="sd-panel-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v18l-3-2-2 2-2-2-2 2-2-2-3 2Z"/><path d="M18 14V8"/><path d="M14 8h-4"/><path d="M10 12h4"/></svg>
+                <h3>News &amp; Sentiment</h3>
+            </div>
+            <div class="sd-panel-body">
+                <div id="sdNews"><span class="sd-empty">No recent news flagged.</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Pinned to v4.x: uses the v4 API (addCandlestickSeries/addHistogramSeries/createPriceLine); v5 removed those. -->
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+    const SYMBOL = '{{ symbol }}';
+
+    // ── Helpers ──────────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+    const lastVal = (v) => Array.isArray(v) ? (v.length ? v[v.length - 1] : 0) : (v || 0);
+    const safeNum = (v) => Number(lastVal(v)) || 0;
+    const fmtINR = (v) => '₹' + Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const tok = (name, fb) => (getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fb);
+    const SVGNS = 'http://www.w3.org/2000/svg';
+
+    // Map a textual tier (High/Medium/Low) to a dot class.
+    function tierClass(t) {
+        const s = String(t || '').toLowerCase();
+        if (/high|strong/.test(s)) return 't-high';
+        if (/med|moderate/.test(s)) return 't-med';
+        if (/low|weak|poor/.test(s)) return 't-low';
+        return '';
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  1) SCORE HERO — bespoke SVG arc gauge (270° sweep)
+    // ════════════════════════════════════════════════════════
+    // Builds a fixed arc path once; the fill arc is drawn proportionally
+    // to the real composite score using stroke-dasharray on the SAME path.
+    const GAUGE = { cx: 100, cy: 105, r: 82, start: 135, sweep: 270 };
+    function polar(cx, cy, r, deg) {
+        const a = (deg - 90) * Math.PI / 180;
+        return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    }
+    function arcPath(cx, cy, r, startDeg, endDeg) {
+        const [x1, y1] = polar(cx, cy, r, startDeg);
+        const [x2, y2] = polar(cx, cy, r, endDeg);
+        const large = (endDeg - startDeg) % 360 > 180 ? 1 : 0;
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+    }
+    function renderGauge(score) {
+        const g = GAUGE;
+        const track = $('sdGaugeTrack'), fill = $('sdGaugeFill');
+        const d = arcPath(g.cx, g.cy, g.r, g.start, g.start + g.sweep);
+        track.setAttribute('d', d);
+        fill.setAttribute('d', d);
+        // Arc length of the full track (270° of a circle).
+        const len = 2 * Math.PI * g.r * (g.sweep / 360);
+        fill.setAttribute('stroke-dasharray', len.toFixed(2));
+        const pct = Math.max(0, Math.min(100, Number(score) || 0)) / 100;
+        // Band tint on the DATA only.
+        fill.classList.remove('band-pos', 'band-neg');
+        if (score >= 80) fill.classList.add('band-pos');
+        else if (score < 50) fill.classList.add('band-neg');
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduce) {
+            fill.setAttribute('stroke-dashoffset', (len * (1 - pct)).toFixed(2));
+        } else {
+            fill.setAttribute('stroke-dashoffset', len.toFixed(2)); // start empty
+            requestAnimationFrame(() => fill.setAttribute('stroke-dashoffset', (len * (1 - pct)).toFixed(2)));
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  2) FACTOR DNA RADAR — binds to real factor_percentiles
+    // ════════════════════════════════════════════════════════
+    // factors: [{label, value 0-100, weak bool}]. A vertex tints --neg
+    // when below WEAK_THRESHOLD. NEVER invents values.
+    const WEAK_THRESHOLD = 25;
+    function renderRadar(factors) {
+        const grid = $('sdRadarGrid'), labelsG = $('sdRadarLabels'), vtxG = $('sdRadarVtx');
+        const poly = $('sdRadarPoly'), tbody = document.querySelector('#sdRadarTable tbody');
+        if (!poly) return;
+        const cx = 120, cy = 120, R = 78, n = factors.length;
+        grid.innerHTML = ''; labelsG.innerHTML = ''; vtxG.innerHTML = '';
+        if (tbody) tbody.innerHTML = '';
+        if (!n) return;
+
+        // Hairline rings 25/50/75/100
+        [0.25, 0.5, 0.75, 1].forEach(f => {
+            const ring = document.createElementNS(SVGNS, 'polygon');
+            const pts = [];
+            for (let i = 0; i < n; i++) {
+                const ang = (Math.PI * 2 * i / n) - Math.PI / 2;
+                pts.push((cx + Math.cos(ang) * R * f).toFixed(1) + ',' + (cy + Math.sin(ang) * R * f).toFixed(1));
+            }
+            ring.setAttribute('points', pts.join(' '));
+            ring.setAttribute('class', 'sd-radar-ring');
+            grid.appendChild(ring);
+        });
+
+        const polyPts = [], vtx = [];
+        for (let i = 0; i < n; i++) {
+            const ang = (Math.PI * 2 * i / n) - Math.PI / 2;
+            const ox = cx + Math.cos(ang) * R, oy = cy + Math.sin(ang) * R;
+            const spoke = document.createElementNS(SVGNS, 'line');
+            spoke.setAttribute('x1', cx); spoke.setAttribute('y1', cy);
+            spoke.setAttribute('x2', ox.toFixed(1)); spoke.setAttribute('y2', oy.toFixed(1));
+            spoke.setAttribute('class', 'sd-radar-spoke');
+            grid.appendChild(spoke);
+
+            const val = Math.max(0, Math.min(100, Number(factors[i].value) || 0));
+            const weak = val < WEAK_THRESHOLD;
+            const vr = R * (val / 100);
+            const vx = cx + Math.cos(ang) * vr, vy = cy + Math.sin(ang) * vr;
+            polyPts.push(vx.toFixed(1) + ',' + vy.toFixed(1));
+            vtx.push({ x: vx, y: vy, weak });
+
+            // Axis label — sits just outside the ring. Anchor by quadrant so
+            // side labels grow away from the chart; a small vertical nudge keeps
+            // top/bottom labels clear of the ring. viewBox padding gives room.
+            const cA = Math.cos(ang), sA = Math.sin(ang);
+            const lx = cx + cA * (R + 14), ly = cy + sA * (R + 14);
+            const txt = document.createElementNS(SVGNS, 'text');
+            const dy = sA > 0.3 ? 9 : sA < -0.3 ? -2 : 3;
+            txt.setAttribute('x', lx.toFixed(1)); txt.setAttribute('y', (ly + dy).toFixed(1));
+            txt.setAttribute('class', 'sd-radar-label');
+            txt.setAttribute('text-anchor', cA > 0.3 ? 'start' : cA < -0.3 ? 'end' : 'middle');
+            txt.textContent = factors[i].label;
+            labelsG.appendChild(txt);
+
+            if (tbody) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td class="sd-radar-t-label">' + factors[i].label + '</td>' +
+                    '<td class="sd-radar-t-val' + (weak ? ' weak' : '') + '">' + Math.round(val) + '</td>';
+                tbody.appendChild(tr);
+            }
+        }
+
+        // Conviction polygon (animate draw, snap if reduced-motion)
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        poly.style.display = '';
+        const drawVtx = () => {
+            vtxG.innerHTML = '';
+            vtx.forEach(p => {
+                const c = document.createElementNS(SVGNS, 'circle');
+                c.setAttribute('cx', p.x.toFixed(1)); c.setAttribute('cy', p.y.toFixed(1));
+                c.setAttribute('r', '2.5');
+                c.setAttribute('class', 'sd-radar-vtx' + (p.weak ? ' weak' : ''));
+                vtxG.appendChild(c);
+            });
+        };
+        if (reduce) {
+            poly.setAttribute('points', polyPts.join(' '));
+            drawVtx();
+        } else {
+            const targets = polyPts.map(p => p.split(',').map(Number));
+            poly.setAttribute('points', targets.map(() => cx + ',' + cy).join(' '));
+            const start = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - start) / 250);
+                const e = 1 - Math.pow(1 - t, 3);
+                poly.setAttribute('points', targets.map(([tx, ty]) =>
+                    (cx + (tx - cx) * e).toFixed(1) + ',' + (cy + (ty - cy) * e).toFixed(1)).join(' '));
+                if (t < 1) requestAnimationFrame(step); else drawVtx();
+            };
+            requestAnimationFrame(step);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  3) PRICE CHART — TradingView Lightweight Charts (self-rendered)
+    //  Candles from /api/stock/ohlc (Yahoo .NS intraday, server-cached, EOD fallback).
+    //  Self-rendered because TradingView's free embed has no NSE data and no broker
+    //  offers a drop-in widget — and self-rendering lets us draw OUR engine-aware
+    //  entry/SL/target levels ON the chart. Timeframes: 5m/15m/1H/1D.
+    // ════════════════════════════════════════════════════════
+    let mainChart = null, candleSeries = null, volSeries = null, currentTf = '1d';
+    let _levels = null, _priceLines = [];
+    let _chartLoaded = false, _eodOhlcv = null;  // EOD fallback state (never blank if Yahoo fails)
+
+    function chartThemeOptions() {
+        return {
+            layout: { background: { type: 'solid', color: 'transparent' }, textColor: tok('--text-secondary', '#9AA3B2'), fontFamily: "'JetBrains Mono', monospace", fontSize: 11 },
+            grid: { vertLines: { color: tok('--border-hairline', '#1E2630') }, horzLines: { color: tok('--border-hairline', '#1E2630') } },
+            rightPriceScale: { borderColor: tok('--border-strong', '#2A333F') },
+            timeScale: { borderColor: tok('--border-strong', '#2A333F'), timeVisible: (currentTf !== '1d'), secondsVisible: false },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        };
+    }
+    function _fit() { const el = $('tvChartWidget'); if (mainChart && el) mainChart.applyOptions({ width: el.clientWidth, height: el.clientHeight }); }
+    function _applySeriesTheme() {
+        const U = tok('--pos', '#2FB67A'), D = tok('--neg', '#E5484D');
+        if (candleSeries) candleSeries.applyOptions({ upColor: U, downColor: D, borderUpColor: U, borderDownColor: D, wickUpColor: U, wickDownColor: D });
+    }
+    function initMainChart() {
+        const el = $('tvChartWidget');
+        if (!el || mainChart || typeof LightweightCharts === 'undefined') return;
+        mainChart = LightweightCharts.createChart(el, Object.assign({ width: el.clientWidth, height: el.clientHeight }, chartThemeOptions()));
+        candleSeries = mainChart.addCandlestickSeries({});
+        _applySeriesTheme();
+        new ResizeObserver(_fit).observe(el);
+        window.addEventListener('resize', _fit);
+        // Re-theme on the app's dark/light toggle.
+        new MutationObserver(() => { if (mainChart) { mainChart.applyOptions(chartThemeOptions()); _applySeriesTheme(); drawTradeLines(); } })
+            .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    }
+
+    async function loadChart(tf) {
+        currentTf = tf;
+        document.querySelectorAll('#sdChartToolbar .sd-tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === tf));
+        const container = $('mainChartContainer');
+        let rows = [], srcLabel = '';
+        try {
+            const r = await fetch('/api/stock/ohlc/' + encodeURIComponent(SYMBOL) + '?interval=' + tf);
+            const d = await r.json();
+            rows = (d.candles || []).filter(c => c && c.t != null && c.c != null);
+            if (rows.length) srcLabel = (d.source === 'eod') ? 'EOD (fallback)' : (d.delayed ? '~15m delayed' : 'live');
+        } catch (e) { rows = []; }
+        // CLEAN DEGRADATION: if the endpoint returns nothing (e.g. Yahoo blocked from a datacenter
+        // IP in prod), render our OWN EOD daily bars from the /api/stock payload (jugaad/bhavcopy —
+        // no broker creds needed) so the chart is NEVER blank and NEVER errors. Drops to 1D.
+        if (!rows.length && _eodOhlcv && _eodOhlcv.length) {
+            currentTf = '1d';
+            document.querySelectorAll('#sdChartToolbar .sd-tf-btn').forEach(b => b.classList.toggle('active', b.dataset.tf === '1d'));
+            rows = _eodOhlcv.filter(c => c && c.date && c.c != null).map(c => ({ t: c.date, o: c.o, h: c.h, l: c.l, c: c.c, v: c.v }));
+            srcLabel = 'EOD (fallback)';
+        }
+        if (!rows.length) { container.classList.add('is-empty'); return; }  // no data anywhere yet
+        container.classList.remove('is-empty');
+        initMainChart();
+        if (!candleSeries) { container.classList.add('is-empty'); return; }
+        mainChart.applyOptions(chartThemeOptions());   // timeVisible depends on currentTf
+        candleSeries.setData(rows.map(c => ({ time: c.t, open: +c.o, high: +c.h, low: +c.l, close: +c.c })));
+        const U = tok('--pos', '#2FB67A'), D = tok('--neg', '#E5484D');
+        if (rows.some(c => c.v)) {
+            if (!volSeries) {
+                volSeries = mainChart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
+                volSeries.priceScale().applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
+            }
+            volSeries.setData(rows.map(c => ({ time: c.t, value: +c.v || 0, color: ((+c.c >= +c.o) ? U : D) + '40' })));
+        }
+        mainChart.timeScale().fitContent();
+        const src = $('sdChartSrc'); if (src) src.textContent = srcLabel;
+        _chartLoaded = true;
+        drawTradeLines();
+    }
+
+    // OUR engine-aware trade levels drawn ON the chart as price lines.
+    function drawTradeLines(levels) {
+        if (levels) _levels = levels;
+        if (!candleSeries || !_levels) return;
+        _priceLines.forEach(pl => { try { candleSeries.removePriceLine(pl); } catch (e) { } });
+        _priceLines = [];
+        const L = LightweightCharts.LineStyle;
+        const cA = tok('--accent', '#4C8DFF'), cN = tok('--neg', '#E5484D'), cP = tok('--pos', '#2FB67A');
+        const add = (price, color, style, title) => { const p = Number(price) || 0; if (p <= 0) return; _priceLines.push(candleSeries.createPriceLine({ price: p, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
+        add(_levels.entryLow, cA, L.Dashed, 'Entry');
+        add(_levels.entryHigh, cA, L.Dashed, 'Entry');
+        add(_levels.sl, cN, L.Dashed, 'SL');
+        add(_levels.t1, cP, L.Dotted, 'T1');
+        add(_levels.t2, cP, L.Dotted, 'T2');
+        add(_levels.t3, cP, L.Dotted, 'T3');
+    }
+
+    $('sdChartToolbar').addEventListener('click', (e) => {
+        const b = e.target.closest('.sd-tf-btn');
+        if (b) loadChart(b.dataset.tf);
+    });
+
+    // ════════════════════════════════════════════════════════
+    //  LOAD STOCK DATA
+    // ════════════════════════════════════════════════════════
+    async function loadStockData() {
+        try {
+            // Fix flag #1: the legacy_cleaned view resolves the detail against its OWN persisted
+            // scan (structure levels + A+D factors) by sending ?engine=legacy_cleaned. scoring_v1 /
+            // legacy / no-selection send NO engine param -> byte-identical to prior behavior.
+            const _viewEng = (window.QR && QR.engine && QR.engine()) || '';
+            const _stockUrl = (_viewEng === 'legacy_cleaned' && window.QR && QR.url)
+                ? QR.url('/api/stock/' + SYMBOL)
+                : ('/api/stock/' + SYMBOL);
+            const resp = await fetch(_stockUrl);
+            if (!resp.ok) throw new Error('API error');
+            const data = await resp.json();
+            const raw = data.stock_detail || data;
+            const scan = raw.scan || {};
+            const s = { ...raw, ...scan };
+
+            // ── Header ──
+            $('sdSector').textContent = s.sector || '—';
+            if (s.high_conviction) $('sdBadgeHC').style.display = 'inline-block';
+            if (s.is_golden) $('sdBadgeGolden').style.display = 'inline-block';
+
+            const price = Number(s.price) || 0;
+            $('sdPrice').textContent = price > 0 ? fmtINR(price) : '—';
+            const chg1w = Number(s.pct_1w) || 0;
+            const chgEl = $('sdChange');
+            chgEl.textContent = (chg1w >= 0 ? '+' : '') + chg1w.toFixed(2) + '% · 1W';
+            chgEl.className = 'sd-change ' + (chg1w >= 0 ? 'pos' : 'neg');
+
+            // Market regime chip (real field; don't fabricate)
+            const regime = raw.market_regime || s.market_regime || '';
+            if (regime) {
+                const chip = $('sdRegimeChip');
+                $('sdRegimeText').textContent = String(regime);
+                const rl = String(regime).toLowerCase();
+                chip.classList.remove('sd-chip-pos', 'sd-chip-neg', 'sd-chip-warn');
+                if (/bull|risk[\s_-]?on|positive|expansion/.test(rl)) chip.classList.add('sd-chip-pos');
+                else if (/bear|risk[\s_-]?off|negative|contraction/.test(rl)) chip.classList.add('sd-chip-neg');
+                else if (/side|neutral|caution|volatile|mixed/.test(rl)) chip.classList.add('sd-chip-warn');
+                chip.style.display = 'inline-flex';
+            }
+
+            // ── Trade levels (server-resolved targets only) ──
+            const tgt = raw.targets || {};
+            const entryLow = Number(tgt.entry_low) || 0;
+            const entryHigh = Number(tgt.entry_high) || 0;
+            const sl = Number(tgt.sl || s.stop_loss) || 0;
+            const t1 = Number(tgt.t1 || s.target_price) || 0;
+            const t2 = Number(tgt.t2) || 0;
+            const t3 = Number(tgt.t3) || 0;
+            const erm = tgt.entry_rr || {};
+
+            // CMP vs entry band tag (data, colored dot)
+            const cmpTag = $('sdCmpTag');
+            if (entryLow > 0 && entryHigh > 0 && price > 0) {
+                if (price > entryHigh) cmpTag.innerHTML = '<span class="sd-cmp-tag sd-cmp-above"><span class="sd-chip-dot"></span>CMP above band</span>';
+                else if (price < entryLow) cmpTag.innerHTML = '<span class="sd-cmp-tag sd-cmp-below"><span class="sd-chip-dot"></span>CMP below band</span>';
+                else cmpTag.innerHTML = '<span class="sd-cmp-tag sd-cmp-in"><span class="sd-chip-dot"></span>CMP in band</span>';
+            }
+
+            $('sdEntry').textContent = entryLow > 0 ? fmtINR(entryLow) + ' – ' + fmtINR(entryHigh) : '—';
+            const slPct = (entryHigh > 0 && sl > 0) ? ((sl - entryHigh) / entryHigh * 100).toFixed(1) + '%' : '';
+            $('sdSLpct').textContent = slPct;
+            $('sdSL').textContent = sl > 0 ? fmtINR(sl) : '—';
+            $('sdT1').textContent = t1 > 0 ? fmtINR(t1) : '—';
+            $('sdT2').textContent = t2 > 0 ? fmtINR(t2) : '—';
+            $('sdT3').textContent = t3 > 0 ? fmtINR(t3) : '—';
+            // R-multiples per target straight from server entry_rr
+            $('sdT1r').textContent = erm.t1 ? erm.t1.toFixed(0) + 'R' : '';
+            $('sdT2r').textContent = erm.t2 ? erm.t2.toFixed(0) + 'R' : '';
+            $('sdT3r').textContent = erm.t3 ? erm.t3.toFixed(0) + 'R' : '';
+
+            // R:R from server (never recompute). legacy_cleaned persists its OWN structure R:R
+            // (entry_high-based) on the row -> show that so the detail matches the persisted /
+            // top-picks value. Other engines keep the entry-band R-multiple (byte-unchanged).
+            const _rrEng = (window.QR && QR.engine && QR.engine()) || '';
+            const rr = (_rrEng === 'legacy_cleaned')
+                ? (Number(s.risk_reward) || Number(erm.t1) || 0)
+                : (Number(erm.t1 || s.risk_reward) || 0);
+            const rrEl = $('sdRR');
+            if (rr > 0) {
+                rrEl.textContent = '1 : ' + rr.toFixed(1);
+                rrEl.className = 'sd-level-value ' + (rr >= 2 ? 'pos' : rr >= 1 ? 'warn' : 'neg');
+            } else { rrEl.textContent = '—'; }
+
+            // Over-extension note (price well above entry band)
+            if (price > 0 && entryHigh > 0 && price > entryHigh) {
+                const ext = ((price - entryHigh) / entryHigh * 100);
+                if (ext >= 2) {
+                    $('sdOverextText').textContent = 'Price is ' + ext.toFixed(1) + '% above the entry band — wait for a pullback.';
+                    $('sdOverext').style.display = 'flex';
+                }
+            }
+
+            // ── Score Hero ──
+            const score = Math.round(Number(s.score) || 0);
+            $('sdScore').textContent = score;
+            $('sdGrade').textContent = s.grade || '—';
+            renderGauge(score);
+
+            // Two tier chips — real string tiers, never a fake single %
+            const integ = s.data_integrity || '—';
+            const agree = s.signal_agreement || '—';
+            const intEl = $('sdIntegrity'), agrEl = $('sdAgreement');
+            intEl.className = 'sd-tier-val ' + tierClass(integ);
+            intEl.querySelector('span:last-child').textContent = integ;
+            agrEl.className = 'sd-tier-val ' + tierClass(agree);
+            agrEl.querySelector('span:last-child').textContent = agree;
+
+            // ── Factor Stats ──
+            $('sdRSI').textContent = safeNum(raw.rsi || s.rsi).toFixed(1);
+            $('sdADX').textContent = safeNum(raw.adx || s.adx).toFixed(1);
+            const mh = safeNum(raw.macd_hist);
+            const mhEl = $('sdMACD');
+            mhEl.textContent = (mh >= 0 ? '+' : '') + mh.toFixed(2);
+            mhEl.className = 'sd-kv-value ' + (mh >= 0 ? 'pos' : 'neg');
+            $('sdATR').textContent = safeNum(raw.atr).toFixed(2);
+            const trend = s.weekly_trend || '—';
+            const trEl = $('sdTrend');
+            trEl.textContent = (trend === 'up' ? '↗ ' : trend === 'down' ? '↘ ' : '→ ') + trend;
+            trEl.className = 'sd-kv-value ' + (trend === 'up' ? 'pos' : trend === 'down' ? 'neg' : '');
+            const p1w = Number(s.pct_1w), p1m = Number(s.pct_1m);
+            $('sdPct').textContent = (isFinite(p1w) ? (p1w >= 0 ? '+' : '') + p1w.toFixed(1) : '—') + ' / ' + (isFinite(p1m) ? (p1m >= 0 ? '+' : '') + p1m.toFixed(1) : '—') + '%';
+            const lo52 = Number(raw.low_52w) || 0, hi52 = Number(raw.high_52w) || 0;
+            $('sd52w').textContent = (lo52 && hi52) ? fmtINR(lo52).replace('.00', '') + '–' + fmtINR(hi52).replace('.00', '') : '—';
+            const em = Number(s.earnings_momentum_score);
+            $('sdEarnMom').textContent = isFinite(em) ? em.toFixed(3) : '—';
+
+            // ── Factor DNA radar — bind to REAL factor_percentiles ──
+            const fp = s.factor_percentiles || {};
+            // Union of every engine's factor axes; the presence filter below keeps ONLY the
+            // active engine's factors, so scoring_v1 renders trend/momentum/.../risk (unchanged)
+            // and legacy_cleaned renders technical/smart_money/sector_rs/earnings/fundamental.
+            const order = [
+                ['technical', 'Technical'],
+                ['trend', 'Trend'], ['momentum', 'Momentum'],
+                ['smart_money', 'Smart Money'], ['sector_rs', 'Sector RS'],
+                ['earnings', 'Earnings'], ['fundamental', 'Fundamental'],
+                ['risk', 'Risk'],
+            ];
+            const present = order.filter(([k]) => fp[k] != null);
+            if (present.length >= 3) {
+                $('sdRadarMode').textContent = 'percentile';
+                renderRadar(present.map(([k, label]) => ({ label, value: Number(fp[k]) || 0 })));
+            } else {
+                // Fallback: signed factor_contributions normalized to a 0-100 magnitude band.
+                const fc = s.factor_contributions || {};
+                const fcKeys = order.filter(([k]) => fc[k] != null);
+                if (fcKeys.length >= 3) {
+                    $('sdRadarMode').textContent = 'contribution';
+                    renderRadar(fcKeys.map(([k, label]) => ({ label, value: Math.max(0, Math.min(100, 50 + (Number(fc[k]) || 0) * 100)) })));
+                } else {
+                    $('sdRadarMode').textContent = 'unavailable';
+                    document.querySelector('#sdRadarTable tbody').innerHTML = '<tr><td class="sd-radar-t-label">Factor data unavailable</td></tr>';
+                }
+            }
+
+            // ── Thesis summary + drivers/weaknesses ──
+            const trade = s.trade || {};
+            $('sdSummary').textContent = trade.booking_plan || s.trade_summary || 'No thesis narrative available.';
+            const drv = $('sdDrivers');
+            drv.innerHTML = '';
+            const parseFactors = (str, cls) => String(str || '').split(',').map(x => x.trim()).filter(Boolean).forEach(tokn => {
+                const m = tokn.match(/^(.+?)\s+([+-]?[\d.]+)$/);
+                const label = m ? m[1] : tokn, val = m ? m[2] : '';
+                const span = document.createElement('span');
+                span.className = 'sd-driver ' + cls;
+                span.innerHTML = '<span class="sd-chip-dot"></span>' + label + (val ? ' <span class="sd-driver-val">' + val + '</span>' : '');
+                drv.appendChild(span);
+            });
+            if (s.drivers) parseFactors(s.drivers, 'pos');
+            if (s.weaknesses) parseFactors(s.weaknesses, 'neg');
+
+            // ── Price chart trade levels + EOD fallback source ──
+            // Cache our own EOD bars (from this payload) so loadChart can fall back to daily
+            // candles if Yahoo returns nothing. Then hand the chart THIS engine's structure
+            // levels to draw ON it (stored so it redraws on timeframe switch / theme toggle).
+            _eodOhlcv = raw.ohlcv || [];
+            drawTradeLines({ entryLow, entryHigh, sl, t1, t2, t3 });
+            // If the initial chart load found no candles (e.g. Yahoo blocked at init, before this
+            // payload arrived), render now from our EOD bars — never leave the chart blank.
+            if (!_chartLoaded) loadChart(currentTf);
+
+            // ── News traffic-light ──
+            renderNews(s);
+
+            // ── Financials ──
+            loadFinancials();
+        } catch (err) {
+            console.error('Failed to load stock data:', err);
+            $('sdSummary').textContent = 'Failed to load analysis. Please try again.';
+        }
+    }
+
+    // ── News traffic-light (colored dots, no emoji) ──
+    function renderNews(s) {
+        const box = $('sdNews');
+        const items = [];
+        const score = Number(s.news_sentiment_score);
+        if (isFinite(score) && score !== 0) {
+            const cls = score > 0.5 ? 'pos' : score < -0.5 ? 'neg' : 'warn';
+            items.push({ cls, headline: 'Aggregate news sentiment', meta: 'score ' + score.toFixed(2) });
+        }
+        const ns = s.news_sentiment || {};
+        const headlines = ns.headlines || ns.articles || s.news || [];
+        if (Array.isArray(headlines)) {
+            headlines.slice(0, 6).forEach(h => {
+                const sc = Number(h.sentiment != null ? h.sentiment : h.score);
+                const cls = isFinite(sc) ? (sc > 0.1 ? 'pos' : sc < -0.1 ? 'neg' : 'warn') : 'warn';
+                items.push({ cls, headline: h.title || h.headline || h.text || String(h), meta: h.source || h.date || '' });
+            });
+        }
+        if (!items.length) { box.innerHTML = '<span class="sd-empty">No recent news flagged.</span>'; return; }
+        box.innerHTML = items.map(it =>
+            '<div class="sd-news-item"><span class="sd-news-dot ' + it.cls + '"></span><div><div class="sd-news-headline">' +
+            it.headline + '</div>' + (it.meta ? '<div class="sd-news-meta">' + it.meta + '</div>' : '') + '</div></div>'
+        ).join('');
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  FINANCIALS (collapsible)
+    // ════════════════════════════════════════════════════════
+    async function loadFinancials() {
+        try {
+            const resp = await fetch('/api/stock/' + SYMBOL + '/financials');
+            if (!resp.ok) { $('sdQuarterly').innerHTML = '<span class="sd-empty">Financial data not available.</span>'; return; }
+            const fin = await resp.json();
+            const f = fin.fundamentals || fin;
+
+            // Health verdict chip
+            const verdict = f.fin_health_verdict, hscore = f.fin_health_score;
+            if (verdict || hscore != null) {
+                const cls = tierClass(verdict);
+                const dotColor = cls === 't-high' ? 'var(--pos)' : cls === 't-low' ? 'var(--neg)' : 'var(--warn)';
+                $('sdFinHealth').innerHTML = '<span class="sd-chip-dot" style="background:' + dotColor + '"></span>' +
+                    (verdict || '') + (hscore != null ? ' ' + hscore : '');
+            }
+
+            // Quick fundamentals grid from latest yearly/quarterly
+            const yearly = f.yearly || [], quarterly = f.quarterly || [];
+            const grid = $('sdFundGrid');
+            const cells = [];
+            if (quarterly.length) {
+                const q = quarterly[0];
+                if (q.eps != null) cells.push(['₹' + Number(q.eps).toFixed(2), 'EPS (latest Q)']);
+                if (q.net_margin != null) cells.push([Number(q.net_margin).toFixed(1) + '%', 'Net Margin']);
+                if (q.rev_growth_qoq != null) cells.push([(q.rev_growth_qoq >= 0 ? '+' : '') + Number(q.rev_growth_qoq).toFixed(1) + '%', 'Rev QoQ']);
+                if (q.ebitda_margin != null) cells.push([Number(q.ebitda_margin).toFixed(0) + '%', 'EBITDA Margin']);
+            }
+            if (yearly.length) {
+                const y = yearly[0];
+                if (y.rev_growth_yoy != null && cells.length < 4) cells.push([(y.rev_growth_yoy >= 0 ? '+' : '') + Number(y.rev_growth_yoy).toFixed(1) + '%', 'Rev YoY']);
+            }
+            grid.innerHTML = cells.slice(0, 4).map(([num, label]) =>
+                '<div class="sd-fund-item"><div class="sd-fund-num">' + num + '</div><div class="sd-fund-label">' + label + '</div></div>'
+            ).join('');
+
+            // Quarterly earnings table
+            if (quarterly.length) {
+                let h = '<table class="sd-fin-table"><thead><tr><th>Period</th><th>Revenue</th><th>Net Inc.</th><th>EPS</th><th>QoQ</th></tr></thead><tbody>';
+                quarterly.slice(0, 5).forEach((q, i) => {
+                    const rev = Number(q.revenue) || 0, ni = Number(q.net_income) || 0, eps = Number(q.eps) || 0;
+                    const g = Number(q.net_income_growth_qoq);
+                    h += '<tr><td>Q-' + (i + 1) + '</td>' +
+                        '<td>' + (rev ? (rev / 1000).toFixed(1) + 'K' : '—') + '</td>' +
+                        '<td class="' + (ni >= 0 ? 'pos' : 'neg') + '">' + (ni ? (ni / 1000).toFixed(1) + 'K' : '—') + '</td>' +
+                        '<td>' + (eps ? eps.toFixed(2) : '—') + '</td>' +
+                        '<td class="' + (g >= 0 ? 'pos' : 'neg') + '">' + (isFinite(g) ? (g >= 0 ? '+' : '') + g.toFixed(1) + '%' : '—') + '</td></tr>';
+                });
+                h += '</tbody></table>';
+                $('sdQuarterly').innerHTML = h;
+            } else {
+                $('sdQuarterly').innerHTML = '<span class="sd-empty">Quarterly data not available.</span>';
+            }
+        } catch (e) {
+            $('sdQuarterly').innerHTML = '<span class="sd-empty">Financial data not available.</span>';
+        }
+    }
+
+    // Collapsible toggle for the financials panel
+    (function () {
+        const panel = $('sdFinPanel'), head = $('sdFinToggle');
+        const toggle = () => {
+            const open = panel.classList.toggle('open');
+            head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        head.addEventListener('click', toggle);
+        head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    })();
+
+    // ── Live Price refresh ──
+    async function updatePrice() {
+        try {
+            const resp = await fetch('/api/live-prices');
+            if (!resp.ok) return;
+            const prices = await resp.json();
+            const d = prices[SYMBOL] || prices[SYMBOL.replace('.NS', '')];
+            if (d && d.ltp) {
+                $('sdPrice').textContent = fmtINR(d.ltp);
+                if (d.change_pct !== undefined) {
+                    const ce = $('sdChange');
+                    ce.textContent = (d.change_pct >= 0 ? '+' : '') + d.change_pct.toFixed(2) + '%';
+                    ce.className = 'sd-change ' + (d.change_pct >= 0 ? 'pos' : 'neg');
+                }
+            }
+        } catch (e) { }
+    }
+
+    // ── Init ──
+    loadChart(currentTf);   // self-rendered price chart (default 1D); loads candles independently
+    loadStockData();        // score/levels/radar/financials; hands levels to drawTradeLines()
+    setInterval(updatePrice, 5000);
+</script>
+{% endblock %}

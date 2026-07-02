@@ -1,0 +1,612 @@
+{% extends "_app_base.html" %}
+{% set active_page = "research" %}
+{% block title %}Research Analytics{% endblock %}
+
+{% block head %}
+<!-- Plotly.js loaded on this page only (factor-exploration analytics) -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+/* ═══ RESEARCH ANALYTICS — factor exploration ══════════════════════════ */
+.ra-wrap { display: flex; flex-direction: column; gap: 16px; }
+
+/* Toolbar: dense, hairline-bordered, single-accent controls */
+.ra-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface-raised, #161D28);
+    border: 1px solid var(--border-hairline, #1E2630);
+    border-radius: var(--radius, 8px);
+}
+.ra-toolbar .ra-tb-group { display: flex; align-items: center; gap: 8px; }
+.ra-tb-label {
+    font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--text-tertiary, #646D7C); font-weight: 600;
+}
+.ra-select {
+    appearance: none; -webkit-appearance: none;
+    background: var(--surface, #111720);
+    color: var(--text-primary, #E7EBF2);
+    border: 1px solid var(--border-hairline, #1E2630);
+    border-radius: var(--radius-sm, 6px);
+    padding: 5px 26px 5px 9px; font-size: 12px; font-weight: 500; cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23646D7C' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat; background-position: right 8px center;
+    transition: border-color 130ms cubic-bezier(.2,0,0,1);
+}
+.ra-select:hover { border-color: var(--border-strong, #2A333F); }
+.ra-select:focus { outline: none; border-color: var(--accent, #4C8DFF); }
+.ra-tb-meta {
+    margin-left: auto; display: flex; align-items: center; gap: 14px;
+    font-size: 12px; color: var(--text-secondary, #9AA3B2);
+}
+.ra-tb-meta .ra-metric-num {
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #E7EBF2); font-weight: 600;
+}
+
+/* Chart grid */
+.ra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ra-panel {
+    background: var(--surface-raised, #161D28);
+    border: 1px solid var(--border-hairline, #1E2630);
+    border-radius: var(--radius, 8px);
+    padding: 14px; display: flex; flex-direction: column; min-width: 0;
+}
+.ra-panel.ra-span-2 { grid-column: 1 / -1; }
+.ra-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 12px;
+}
+.ra-panel-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--text-primary, #E7EBF2);
+}
+.ra-panel-title svg { color: var(--accent, #4C8DFF); flex-shrink: 0; }
+.ra-panel-sub { font-size: 11px; color: var(--text-tertiary, #646D7C); }
+.ra-panel-ctrl { display: flex; align-items: center; gap: 6px; }
+.ra-plot { width: 100%; min-height: 300px; }
+.ra-plot.ra-plot-tall { min-height: 360px; }
+
+/* Skeleton (no spinners) — flat surface with a calm opacity pulse (no gradient/shimmer). */
+.ra-skeleton {
+    width: 100%; min-height: 300px; border-radius: var(--radius-sm, 6px);
+    background: var(--surface, #111720);
+    border: 1px solid var(--border-hairline, #1E2630);
+    animation: raSkelPulse 1.4s cubic-bezier(.2,0,0,1) infinite;
+}
+.ra-plot-tall .ra-skeleton, .ra-skeleton.ra-tall { min-height: 360px; }
+@keyframes raSkelPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ra-skeleton { animation: none; opacity: 0.8; } }
+
+/* Empty / error state */
+.ra-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; min-height: 300px; text-align: center; padding: 24px;
+}
+.ra-empty svg { color: var(--text-tertiary, #646D7C); opacity: 0.5; }
+.ra-empty h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary, #9AA3B2); margin: 0; }
+.ra-empty p { font-size: 12px; color: var(--text-tertiary, #646D7C); margin: 0; max-width: 340px; line-height: 1.5; }
+.ra-empty a { color: var(--accent, #4C8DFF); text-decoration: none; }
+
+/* Tablet / narrow: 2-col chart grid collapses to a single column. */
+@media (max-width: 900px) {
+    .ra-grid { grid-template-columns: 1fr; }
+    .ra-tb-meta { margin-left: 0; width: 100%; }
+}
+
+/* Mobile (≤390px target): toolbar groups stack full-width, selectors wrap and
+   fill their row, charts stay usable with tighter padding. */
+@media (max-width: 560px) {
+    .ra-toolbar { gap: 10px; }
+    .ra-toolbar .ra-tb-group {
+        flex: 1 1 100%; justify-content: space-between; gap: 10px;
+    }
+    .ra-toolbar .ra-tb-group .ra-select { flex: 1 1 auto; min-width: 0; }
+    .ra-tb-meta {
+        margin-left: 0; width: 100%; justify-content: space-between; gap: 10px;
+        padding-top: 8px; border-top: 1px solid var(--border-hairline, #1E2630);
+    }
+    .ra-panel { padding: 12px; }
+    .ra-plot { min-height: 260px; }
+    .ra-plot.ra-plot-tall { min-height: 320px; }
+    .ra-panel-head { flex-wrap: wrap; gap: 4px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="v3-page-header">
+    <div class="v3-page-title">Research Analytics</div>
+    <div class="v3-page-subtitle">Explore factor structure across the scored universe — correlations, dispersion, and cross-factor relationships</div>
+</div>
+
+<div class="ra-wrap" id="raWrap">
+    <!-- Toolbar -->
+    <div class="ra-toolbar" id="raToolbar">
+        <div class="ra-tb-group">
+            <span class="ra-tb-label">Scatter X</span>
+            <select class="ra-select" id="raScatterX" onchange="raRenderScatter()"></select>
+        </div>
+        <div class="ra-tb-group">
+            <span class="ra-tb-label">Scatter Y</span>
+            <select class="ra-select" id="raScatterY" onchange="raRenderScatter()"></select>
+        </div>
+        <div class="ra-tb-group">
+            <span class="ra-tb-label">Distribution</span>
+            <select class="ra-select" id="raDistPlot" onchange="raRenderDist()">
+                <option value="box">Box</option>
+                <option value="violin">Violin</option>
+            </select>
+        </div>
+        <div class="ra-tb-meta" id="raMeta">
+            <span>Universe <span class="ra-metric-num" id="raCount">—</span></span>
+            <span>Sectors <span class="ra-metric-num" id="raSectorCount">—</span></span>
+        </div>
+    </div>
+
+    <!-- Full-width empty / error banner (hidden unless no data) -->
+    <div class="ra-panel ra-span-2" id="raGlobalEmpty" style="display:none;">
+        <div class="ra-empty">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+            <h3 id="raGlobalEmptyTitle">No scored results available</h3>
+            <p id="raGlobalEmptyMsg">The scored universe is empty for the active engine. Run a scan or switch engines, then reload this page to explore factor analytics.</p>
+        </div>
+    </div>
+
+    <!-- Chart grid -->
+    <div class="ra-grid" id="raGrid">
+        <!-- 1) Correlation heatmap (full width) -->
+        <div class="ra-panel ra-span-2">
+            <div class="ra-panel-head">
+                <div class="ra-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                    Factor Correlation
+                </div>
+                <span class="ra-panel-sub">Pearson r across numeric factors</span>
+            </div>
+            <div class="ra-plot ra-plot-tall" id="raHeatmap"><div class="ra-skeleton ra-tall"></div></div>
+        </div>
+
+        <!-- 2) Scatter (scattergl), colored by sector -->
+        <div class="ra-panel">
+            <div class="ra-panel-head">
+                <div class="ra-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="18" r="1.6"/><circle cx="10" cy="11" r="1.6"/><circle cx="15" cy="14" r="1.6"/><circle cx="19" cy="6" r="1.6"/><path d="M3 21h18"/></svg>
+                    Factor Scatter
+                </div>
+                <span class="ra-panel-sub">colored by sector</span>
+            </div>
+            <div class="ra-plot" id="raScatter"><div class="ra-skeleton"></div></div>
+        </div>
+
+        <!-- 4) Score distribution by sector (box/violin) -->
+        <div class="ra-panel">
+            <div class="ra-panel-head">
+                <div class="ra-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="4" height="8" rx="1"/><line x1="6" y1="4" x2="6" y2="8"/><line x1="6" y1="16" x2="6" y2="20"/><rect x="14" y="6" width="4" height="11" rx="1"/><line x1="16" y1="3" x2="16" y2="6"/><line x1="16" y1="17" x2="16" y2="20"/></svg>
+                    Score Distribution
+                </div>
+                <span class="ra-panel-sub">by sector (top by count)</span>
+            </div>
+            <div class="ra-plot" id="raDist"><div class="ra-skeleton"></div></div>
+        </div>
+
+        <!-- 3) Parallel coordinates (full width) -->
+        <div class="ra-panel ra-span-2">
+            <div class="ra-panel-head">
+                <div class="ra-panel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="3" x2="4" y2="21"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="20" y1="3" x2="20" y2="21"/><path d="M4 8l8 6 8-4"/><path d="M4 15l8-5 8 7"/></svg>
+                    Parallel Coordinates
+                </div>
+                <span class="ra-panel-sub">factor percentiles per name, colored by score</span>
+            </div>
+            <div class="ra-plot ra-plot-tall" id="raParallel"><div class="ra-skeleton ra-tall"></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ═══ RESEARCH ANALYTICS — factor exploration (Plotly, dark-token themed) ═══
+(function () {
+    'use strict';
+
+    // ── Theme tokens, resolved from live CSS variables so they track light/dark.
+    //    TOK + CAT_COLORS are RE-READ on every theme change (see themeObserver) so
+    //    the Plotly figures never render dark-on-light or vice-versa. ──
+    function cssVar(name, fallback) {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+        return (v && v.trim()) || fallback;
+    }
+    var TOK, CAT_COLORS;
+    function readTokens() {
+        TOK = {
+            text:    cssVar('--text-primary', '#E7EBF2'),
+            muted:   cssVar('--text-secondary', '#9AA3B2'),
+            grid:    cssVar('--border-hairline', '#1E2630'),
+            accent:  cssVar('--accent', '#4C8DFF'),
+            accent2: cssVar('--accent-2', '#7B74FF'),
+            purple:  cssVar('--accent-purple', '#8B95F2'),
+            pos:     cssVar('--pos', '#2FB67A'),
+            neg:     cssVar('--neg', '#E5484D'),
+            warn:    cssVar('--warn', '#E8A33D'),
+            surface: cssVar('--surface-raised', '#161D28')
+        };
+        // Categorical (sector) palette led by the azure accent. First entries are
+        // token-driven so they remap on light/dark; the tail adds distinct hues.
+        CAT_COLORS = [
+            TOK.accent, TOK.accent2, TOK.pos, TOK.warn, TOK.neg, TOK.purple,
+            '#3AC8D6', '#6BA0FF', '#5FCF9C', '#D98A4C', TOK.muted, '#B36BE0'
+        ];
+    }
+    readTokens();
+    var MONO = "'JetBrains Mono', monospace";
+
+    // Base layout applied to every figure: transparent bg, token fonts, hairline grid.
+    function baseLayout(extra) {
+        var L = {
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { family: MONO, color: TOK.muted, size: 11 },
+            colorway: [TOK.accent],
+            margin: { l: 56, r: 20, t: 12, b: 44 },
+            hoverlabel: {
+                bgcolor: TOK.surface,
+                bordercolor: TOK.grid,
+                font: { family: MONO, color: TOK.text, size: 11 }
+            },
+            xaxis: { gridcolor: TOK.grid, zerolinecolor: TOK.grid, linecolor: TOK.grid, tickfont: { color: TOK.muted }, title: { font: { color: TOK.muted, size: 11 } } },
+            yaxis: { gridcolor: TOK.grid, zerolinecolor: TOK.grid, linecolor: TOK.grid, tickfont: { color: TOK.muted }, title: { font: { color: TOK.muted, size: 11 } } },
+            legend: { font: { color: TOK.muted, size: 10 }, bgcolor: 'rgba(0,0,0,0)' }
+        };
+        if (extra) Object.keys(extra).forEach(function (k) { L[k] = extra[k]; });
+        return L;
+    }
+    var PLOT_CFG = { displayModeBar: false, responsive: true };
+
+    // ── Factor definitions. factor_percentiles is a normalized 0-100 dict on every
+    //    row (earnings/momentum/risk/sector_rs/smart_money/trend) — the cleanest
+    //    signal for cross-factor work. We also expose real top-level numerics. ──
+    var PCT_FACTORS = [
+        { key: 'trend',       label: 'Trend' },
+        { key: 'momentum',    label: 'Momentum' },
+        { key: 'smart_money', label: 'Smart Money' },
+        { key: 'sector_rs',   label: 'Sector RS' },
+        { key: 'earnings',    label: 'Earnings' },
+        { key: 'risk',        label: 'Risk' }
+    ];
+    // Axis options for the scatter selector (real fields present on each row).
+    var AXIS_OPTS = [
+        { key: 'score',          label: 'Score',          get: function (r) { return num(r.score); } },
+        { key: 'risk_reward',    label: 'Risk : Reward',  get: function (r) { return num(r.risk_reward); } },
+        { key: 'pct_1m',         label: '1M Return %',    get: function (r) { return num(r.pct_1m); } },
+        { key: 'pct_1w',         label: '1W Return %',    get: function (r) { return num(r.pct_1w); } },
+        { key: 'adx',            label: 'ADX',            get: function (r) { return num(r.adx); } },
+        { key: 'atr_pct',        label: 'ATR %',          get: function (r) { return num(r.atr_pct); } },
+        { key: 'pct_trend',       label: 'Trend %ile',       get: function (r) { return pct(r, 'trend'); } },
+        { key: 'pct_momentum',    label: 'Momentum %ile',    get: function (r) { return pct(r, 'momentum'); } },
+        { key: 'pct_smart_money', label: 'Smart Money %ile', get: function (r) { return pct(r, 'smart_money'); } },
+        { key: 'pct_sector_rs',   label: 'Sector RS %ile',   get: function (r) { return pct(r, 'sector_rs'); } },
+        { key: 'pct_earnings',    label: 'Earnings %ile',    get: function (r) { return pct(r, 'earnings'); } },
+        { key: 'pct_risk',        label: 'Risk %ile',        get: function (r) { return pct(r, 'risk'); } }
+    ];
+
+    function num(v) { return (typeof v === 'number' && isFinite(v)) ? v : null; }
+    // Convert a #rrggbb / #rgb color to an rgba() string at the given alpha.
+    // Falls back to the input if it's not a hex (already rgb/rgba/var).
+    function hexAlpha(hex, a) {
+        if (typeof hex !== 'string') return hex;
+        var h = hex.trim();
+        if (h.charAt(0) !== '#') return h;
+        h = h.slice(1);
+        if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+        if (h.length !== 6) return hex;
+        var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    }
+    function pct(row, k) {
+        var fp = row && row.factor_percentiles;
+        return (fp && typeof fp[k] === 'number' && isFinite(fp[k])) ? fp[k] : null;
+    }
+    function sectorOf(r) {
+        var s = (r.sector || '').trim();
+        return s ? s : 'Unclassified';
+    }
+
+    var ROWS = [];  // filtered scored universe
+
+    // ── Data load ──────────────────────────────────────────────────────────
+    function load() {
+        fetch(QR.url('/api/results?per_page=500'))
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (data) {
+                var rows = (data && data.results) || [];
+                // Keep rows that have a usable score (they all do, but guard anyway).
+                ROWS = rows.filter(function (r) { return num(r.score) !== null; });
+                if (!ROWS.length) { showGlobalEmpty(); return; }
+                initSelectors();
+                renderAll();
+                updateMeta();
+            })
+            .catch(function (err) {
+                showGlobalEmpty('Could not load analytics', 'The results API returned an error (' + err.message + '). Confirm the app is running, then reload.');
+            });
+    }
+
+    function showGlobalEmpty(title, msg) {
+        var grid = document.getElementById('raGrid');
+        var tb = document.getElementById('raToolbar');
+        var banner = document.getElementById('raGlobalEmpty');
+        if (grid) grid.style.display = 'none';
+        if (tb) tb.style.display = 'none';
+        if (banner) banner.style.display = '';
+        if (title) { var t = document.getElementById('raGlobalEmptyTitle'); if (t) t.textContent = title; }
+        if (msg) { var m = document.getElementById('raGlobalEmptyMsg'); if (m) m.textContent = msg; }
+    }
+
+    function updateMeta() {
+        var secs = {};
+        ROWS.forEach(function (r) { secs[sectorOf(r)] = 1; });
+        var c = document.getElementById('raCount'); if (c) c.textContent = ROWS.length;
+        var sc = document.getElementById('raSectorCount'); if (sc) sc.textContent = Object.keys(secs).length;
+    }
+
+    function initSelectors() {
+        var xSel = document.getElementById('raScatterX');
+        var ySel = document.getElementById('raScatterY');
+        if (!xSel.options.length) {
+            AXIS_OPTS.forEach(function (o) {
+                xSel.add(new Option(o.label, o.key));
+                ySel.add(new Option(o.label, o.key));
+            });
+            // Sensible defaults: a factor percentile vs the composite score.
+            xSel.value = 'pct_momentum';
+            ySel.value = 'score';
+        }
+    }
+
+    function renderAll() {
+        renderHeatmap();
+        renderScatter();
+        renderDist();
+        renderParallel();
+    }
+
+    // ── 1) Correlation heatmap ───────────────────────────────────────────────
+    function corr(a, b) {
+        var xs = [], ys = [];
+        for (var i = 0; i < a.length; i++) {
+            if (a[i] !== null && b[i] !== null) { xs.push(a[i]); ys.push(b[i]); }
+        }
+        var n = xs.length;
+        if (n < 3) return null;
+        var mx = 0, my = 0, j;
+        for (j = 0; j < n; j++) { mx += xs[j]; my += ys[j]; }
+        mx /= n; my /= n;
+        var sxy = 0, sxx = 0, syy = 0, dx, dy;
+        for (j = 0; j < n; j++) { dx = xs[j] - mx; dy = ys[j] - my; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+        if (sxx === 0 || syy === 0) return null;
+        return sxy / Math.sqrt(sxx * syy);
+    }
+
+    function renderHeatmap() {
+        var el = document.getElementById('raHeatmap');
+        var labels = PCT_FACTORS.map(function (f) { return f.label; });
+        var cols = PCT_FACTORS.map(function (f) { return ROWS.map(function (r) { return pct(r, f.key); }); });
+        var z = [], text = [];
+        for (var i = 0; i < cols.length; i++) {
+            var zr = [], tr = [];
+            for (var k = 0; k < cols.length; k++) {
+                var c = corr(cols[i], cols[k]);
+                zr.push(c);
+                tr.push(c === null ? '' : c.toFixed(2));
+            }
+            z.push(zr); text.push(tr);
+        }
+        el.innerHTML = '';
+        Plotly.newPlot(el, [{
+            type: 'heatmap', z: z, x: labels, y: labels, text: text,
+            texttemplate: '%{text}', textfont: { family: MONO, size: 11, color: TOK.text },
+            zmin: -1, zmax: 1,
+            // Diverging scale: neg (red) → surface (neutral) → accent (azure) for positive.
+            colorscale: [[0, TOK.neg], [0.5, TOK.surface], [1, TOK.accent]],
+            xgap: 3, ygap: 3,
+            hovertemplate: '%{y} × %{x}<br>r = %{z:.2f}<extra></extra>',
+            colorbar: {
+                thickness: 10, len: 0.85, outlinewidth: 0,
+                tickfont: { color: TOK.muted, family: MONO, size: 10 },
+                tickvals: [-1, 0, 1]
+            }
+        }], baseLayout({
+            margin: { l: 92, r: 12, t: 12, b: 84 },
+            xaxis: { tickfont: { color: TOK.muted }, tickangle: -35, gridcolor: 'rgba(0,0,0,0)' },
+            yaxis: { tickfont: { color: TOK.muted }, autorange: 'reversed', gridcolor: 'rgba(0,0,0,0)' }
+        }), PLOT_CFG);
+    }
+
+    // ── 2) Scatter (scattergl), colored by sector ────────────────────────────
+    function axisDef(key) {
+        for (var i = 0; i < AXIS_OPTS.length; i++) { if (AXIS_OPTS[i].key === key) return AXIS_OPTS[i]; }
+        return AXIS_OPTS[0];
+    }
+
+    function renderScatter() {
+        var el = document.getElementById('raScatter');
+        var xa = axisDef(document.getElementById('raScatterX').value);
+        var ya = axisDef(document.getElementById('raScatterY').value);
+
+        // Group by sector; keep the largest sectors as distinct series, rest → "Other".
+        var counts = {};
+        ROWS.forEach(function (r) { var s = sectorOf(r); counts[s] = (counts[s] || 0) + 1; });
+        var topSecs = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 10);
+        var topSet = {}; topSecs.forEach(function (s) { topSet[s] = 1; });
+
+        var groups = {};
+        ROWS.forEach(function (r) {
+            var x = xa.get(r), y = ya.get(r);
+            if (x === null || y === null) return;
+            var s = sectorOf(r); if (!topSet[s]) s = 'Other';
+            (groups[s] = groups[s] || { x: [], y: [], t: [] });
+            groups[s].x.push(x); groups[s].y.push(y);
+            groups[s].t.push((r.symbol || '') + (r.grade ? ' · ' + r.grade : ''));
+        });
+
+        var order = topSecs.concat(groups['Other'] ? ['Other'] : []);
+        var traces = order.filter(function (s) { return groups[s]; }).map(function (s, i) {
+            return {
+                type: 'scattergl', mode: 'markers', name: s,
+                x: groups[s].x, y: groups[s].y, text: groups[s].t,
+                marker: {
+                    size: 7, opacity: 0.82,
+                    color: s === 'Other' ? TOK.muted : CAT_COLORS[i % CAT_COLORS.length],
+                    line: { width: 0 }
+                },
+                hovertemplate: '<b>%{text}</b><br>' + xa.label + ' %{x}<br>' + ya.label + ' %{y}<extra>' + s + '</extra>'
+            };
+        });
+
+        el.innerHTML = '';
+        Plotly.newPlot(el, traces, baseLayout({
+            margin: { l: 56, r: 12, t: 8, b: 44 },
+            xaxis: { gridcolor: TOK.grid, zerolinecolor: TOK.grid, linecolor: TOK.grid, tickfont: { color: TOK.muted }, title: { text: xa.label, font: { color: TOK.muted, size: 11 } } },
+            yaxis: { gridcolor: TOK.grid, zerolinecolor: TOK.grid, linecolor: TOK.grid, tickfont: { color: TOK.muted }, title: { text: ya.label, font: { color: TOK.muted, size: 11 } } },
+            showlegend: true,
+            legend: { font: { color: TOK.muted, size: 10 }, bgcolor: 'rgba(0,0,0,0)', orientation: 'h', y: -0.22 }
+        }), PLOT_CFG);
+    }
+
+    // ── 3) Parallel coordinates across the main factor percentiles ───────────
+    function renderParallel() {
+        var el = document.getElementById('raParallel');
+        // Only rows with a full set of factor percentiles keep the lines clean.
+        var rows = ROWS.filter(function (r) {
+            return PCT_FACTORS.every(function (f) { return pct(r, f.key) !== null; });
+        });
+        if (!rows.length) { rows = ROWS; }
+
+        var dims = PCT_FACTORS.map(function (f) {
+            return {
+                label: f.label,
+                range: [0, 100],
+                values: rows.map(function (r) { var v = pct(r, f.key); return v === null ? 0 : v; }),
+                tickvals: [0, 25, 50, 75, 100]
+            };
+        });
+        var scores = rows.map(function (r) { return num(r.score) || 0; });
+
+        el.innerHTML = '';
+        Plotly.newPlot(el, [{
+            type: 'parcoords',
+            line: {
+                color: scores, colorscale: [[0, TOK.grid], [0.5, TOK.muted], [1, TOK.accent]],
+                showscale: true,
+                colorbar: { title: { text: 'Score', font: { color: TOK.muted, family: MONO, size: 10 } }, thickness: 10, len: 0.85, outlinewidth: 0, tickfont: { color: TOK.muted, family: MONO, size: 10 } }
+            },
+            dimensions: dims,
+            labelfont: { color: TOK.muted, family: MONO, size: 11 },
+            tickfont: { color: TOK.muted, family: MONO, size: 10 },
+            rangefont: { color: TOK.muted, family: MONO, size: 9 }
+        }], baseLayout({ margin: { l: 60, r: 40, t: 24, b: 20 } }), PLOT_CFG);
+    }
+
+    // ── 4) Score distribution by sector (box or violin) ──────────────────────
+    function renderDist() {
+        var el = document.getElementById('raDist');
+        var kind = document.getElementById('raDistPlot').value; // 'box' | 'violin'
+
+        var bySec = {};
+        ROWS.forEach(function (r) {
+            var s = sectorOf(r), v = num(r.score);
+            if (v === null) return;
+            (bySec[s] = bySec[s] || []).push(v);
+        });
+        // Keep sectors with enough points, ordered by count, capped for legibility.
+        var secs = Object.keys(bySec)
+            .filter(function (s) { return bySec[s].length >= 3; })
+            .sort(function (a, b) { return bySec[b].length - bySec[a].length; })
+            .slice(0, 9);
+
+        if (!secs.length) {
+            el.innerHTML = '<div class="ra-empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 3v18h18"/></svg><h3>Not enough classified sectors</h3><p>Most rows are unclassified, so per-sector distribution needs at least 3 scored names per sector.</p></div>';
+            return;
+        }
+
+        var traces = secs.map(function (s, i) {
+            var col = CAT_COLORS[i % CAT_COLORS.length];
+            var base = {
+                name: s, y: bySec[s], type: kind,
+                marker: { color: col, size: 4, opacity: 0.5 },
+                line: { color: col, width: 1.5 },
+                hoverinfo: 'y'
+            };
+            if (kind === 'box') {
+                base.boxpoints = 'outliers';
+                base.fillcolor = 'rgba(0,0,0,0)';
+            } else {
+                base.points = false;
+                base.fillcolor = hexAlpha(col, 0.14);
+                base.opacity = 0.9;
+                base.spanmode = 'hard';
+                base.meanline = { visible: true, color: col };
+            }
+            return base;
+        });
+
+        el.innerHTML = '';
+        Plotly.newPlot(el, traces, baseLayout({
+            margin: { l: 46, r: 12, t: 8, b: 74 },
+            showlegend: false,
+            xaxis: { gridcolor: 'rgba(0,0,0,0)', linecolor: TOK.grid, tickfont: { color: TOK.muted, size: 10 }, tickangle: -35 },
+            yaxis: { gridcolor: TOK.grid, linecolor: TOK.grid, tickfont: { color: TOK.muted }, title: { text: 'Score', font: { color: TOK.muted, size: 11 } } }
+        }), PLOT_CFG);
+    }
+
+    // Expose the selector-driven renderers for inline onchange handlers.
+    window.raRenderScatter = renderScatter;
+    window.raRenderDist = renderDist;
+
+    // ── Responsiveness: on window resize, ask Plotly to refit every rendered
+    //    figure to its container (config.responsive:true covers most cases, but
+    //    parcoords/heatmap don't always reflow on their own). Debounced. ──
+    var PLOT_IDS = ['raHeatmap', 'raScatter', 'raDist', 'raParallel'];
+    function resizeAll() {
+        if (typeof Plotly === 'undefined' || !ROWS.length) return;
+        PLOT_IDS.forEach(function (id) {
+            var el = document.getElementById(id);
+            // Only resize elements Plotly actually initialised (skeleton/empty states have no _fullLayout).
+            if (el && el._fullLayout) { try { Plotly.Plots.resize(el); } catch (e) {} }
+        });
+    }
+    var _rz;
+    window.addEventListener('resize', function () {
+        clearTimeout(_rz);
+        _rz = setTimeout(resizeAll, 150);
+    });
+
+    // ── Theme awareness: the figures bake CSS-variable colors in at build time,
+    //    so a light/dark toggle would otherwise leave them dark-on-light. Watch
+    //    <html data-theme>, re-read the tokens, and re-render every chart. ──
+    var _themeTimer, _lastTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    function onThemeChange() {
+        var t = document.documentElement.getAttribute('data-theme') || 'dark';
+        if (t === _lastTheme) return;
+        _lastTheme = t;
+        if (!ROWS.length) return;      // nothing rendered yet; load() will read fresh tokens
+        readTokens();                  // refresh TOK + CAT_COLORS from the new theme
+        renderAll();                   // full re-render picks up colorscales + fonts cleanly
+    }
+    var themeObserver = new MutationObserver(function () {
+        clearTimeout(_themeTimer);
+        _themeTimer = setTimeout(onThemeChange, 60);
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', load);
+    } else {
+        load();
+    }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{
+    "timestamp": "2026-06-20T15:33:03.702228",
+    "active_universe_version": "UNIVERSE_v001_BOOTSTRAP",
+    "scan_lock": {
+        "id": 1,
+        "scan_id": null,
+        "owner_id": null,
+        "heartbeat": null,
+        "expires_at": null,
+        "acquired_at": "2026-06-20 19:51:01"
+    },
+    "current_scan_state": {
+        "id": 1,
+        "scan_id": null,
+        "mode": "manual",
+        "status": "idle",
+        "phase": "",
+        "start_time": "2026-06-20 16:45:21",
+        "processed_count": 500,
+        "failed_count": 0,
+        "candidate_count": 574,
+        "cancel_requested": 0,
+        "updated_at": "2026-06-20 21:02:20"
+    },
+    "scan_runs_count": 96,
+    "scan_state_transitions_count": 104
+}

@@ -1,0 +1,135 @@
+{% extends "_public_base.html" %}
+{% set active = 'about' %}
+{% block title %}About — AI Smart Screener{% endblock %}
+
+{% block extra_head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Institutional theme override (azure accent, hairline, flat) ── */
+    :root,[data-theme="dark"]{
+      --bg:#0A0E14; --bg-soft:#111720; --panel:#111720; --panel-2:#161D28;
+      --border:#1E2630; --border-light:#2A333F;
+      --text:#E7EBF2; --text-dim:#9AA3B2; --text-mute:#646D7C;
+      --primary:#4C8DFF; --primary-dark:#6BA0FF; --primary-soft:rgba(76,141,255,.12);
+      --primary-glow:transparent; --green:#2FB67A;
+      --nav-bg:rgba(10,14,20,.72); --radius:6px; --radius-lg:8px;
+      --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+      --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    }
+    [data-theme="light"]{
+      --bg:#F7F8FA; --bg-soft:#FFFFFF; --panel:#FFFFFF; --panel-2:#FFFFFF;
+      --border:#E6E9EE; --border-light:#D4D9E0;
+      --text:#0B0F17; --text-dim:#5B6472; --text-mute:#8B93A1;
+      --primary:#2F6FE0; --primary-dark:#4C8DFF; --primary-soft:rgba(47,111,224,.10);
+      --primary-glow:transparent; --green:#138A5E; --nav-bg:rgba(247,248,250,.82);
+    }
+    .nav-brand .wordmark{background:none;-webkit-text-fill-color:var(--text);color:var(--text)}
+    .btn-primary{box-shadow:none}
+    .btn-primary:hover{transform:none;box-shadow:none;background:var(--primary-dark);border-color:var(--primary-dark)}
+    .nav-links a:hover{background:transparent;color:var(--text)}
+
+    .about-hero{padding:72px 0 40px;position:relative}
+    .about-hero .inner{position:relative;max-width:760px;margin:0 auto;padding:0 24px;text-align:center}
+    .about-hero h1{font-size:clamp(30px,4.4vw,48px);font-weight:600;letter-spacing:-1px;margin:14px 0}
+    .about-hero p{font-size:17px;color:var(--text-dim);line-height:1.65}
+
+    .narrative{max-width:760px;margin:0 auto;padding:48px 24px}
+    .narrative h2{font-size:clamp(20px,3vw,24px);font-weight:600;letter-spacing:-0.4px;margin:32px 0 14px}
+    .narrative h2:first-child{margin-top:0}
+    .narrative p{font-size:15px;color:var(--text-dim);line-height:1.75;margin-bottom:16px}
+    .narrative .lead{font-size:17px;color:var(--text);font-weight:500;line-height:1.65}
+    .narrative blockquote{border-left:2px solid var(--primary);padding:8px 0 8px 20px;margin:20px 0;font-size:16px;color:var(--text);font-style:italic}
+
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:48px auto;max-width:var(--max-w);background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+    .stat{padding:24px 20px;text-align:center;border-left:1px solid var(--border)}
+    .stat:first-child{border-left:0}
+    .stat .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:28px;font-weight:600;color:var(--primary);letter-spacing:-0.5px;margin-bottom:4px}
+    .stat .label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.6px}
+
+    .values{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:var(--max-w);margin:32px auto 0;padding:0 24px}
+    .value{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;transition:border-color 0.15s}
+    .value:hover{border-color:var(--border-light)}
+    .value .icon{width:38px;height:38px;border-radius:9px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+    .value .icon svg{width:18px;height:18px}
+    .value h3{font-size:15px;font-weight:600;margin-bottom:6px}
+    .value p{font-size:13.5px;color:var(--text-dim);line-height:1.6}
+
+    @media (max-width:760px){
+      .about-hero{padding:52px 0 32px}
+      .about-hero h1{font-size:30px}
+      .stats{grid-template-columns:repeat(2,1fr);margin:40px 16px}
+      .stat:nth-child(3){border-left:0}
+      .stat:nth-child(n+3){border-top:1px solid var(--border)}
+      .values{grid-template-columns:1fr}
+    }
+    @media (max-width:440px){
+      .stats{grid-template-columns:1fr}
+      .stat{border-left:0;border-top:1px solid var(--border)}
+      .stat:first-child{border-top:0}
+    }
+</style>
+
+<section class="about-hero">
+    <div class="inner">
+        <div class="eyebrow">About us</div>
+        <h1>Built by traders, for traders.</h1>
+        <p>AI Smart Screener exists because retail traders deserve the same caliber of tools institutions use — without paying institutional prices.</p>
+    </div>
+</section>
+
+<div class="stats">
+    <div class="stat"><div class="num">2200+</div><div class="label">Stocks scanned</div></div>
+    <div class="stat"><div class="num">25+</div><div class="label">Technical Indicators</div></div>
+    <div class="stat"><div class="num">Hourly</div><div class="label">Auto re-scoring</div></div>
+    <div class="stat"><div class="num">Live</div><div class="label">Angel One feed</div></div>
+</div>
+
+<section class="narrative">
+    <h2>Why we built this</h2>
+    <p class="lead">Most retail traders make decisions on incomplete data — looking at one chart, hearing one tip, reacting to one news cycle. The result: emotional trades, lost capital, and the slow attrition of a once-curious investor.</p>
+    <p>We built AI Smart Screener to flatten that gap. Every active stock in the NSE universe (2200+ symbols) is scanned and analyzed. RSI, MACD, EMA crossovers, ATR-based risk, delivery percentage, Bollinger position, volume divergence — all distilled into a single 0–100 score, with the underlying signals one click away.</p>
+    <p>No tips. No "guru" newsletters. Just a fast, opinionated tool that surfaces the highest-probability setups and stays out of your way.</p>
+
+    <h2>How we work</h2>
+    <p>We're a tiny team that trades the same markets we write tools for. Every feature on the platform started as a script one of us wrote to solve a problem in our own trading workflow — and was only added when it consistently produced better decisions.</p>
+    <blockquote>"If we wouldn't use it, it doesn't ship."</blockquote>
+    <p>That's not a marketing line — it's why the dashboard looks the way it does, why we don't have a thousand unused filters, and why the scoring formula tightens automatically when the market regime turns bearish.</p>
+
+    <h2>Our principles</h2>
+</section>
+
+<div class="values">
+    <div class="value">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <h3>Data over opinions</h3>
+        <p>Every score, every signal is computed from market data. No "expert calls", no paid promotions, no hidden agendas.</p>
+    </div>
+    <div class="value">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Speed matters</h3>
+        <p>The dashboard loads in under a second. The scan runs in the background. You should never wait on the tool.</p>
+    </div>
+    <div class="value">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        <h3>One account, one device</h3>
+        <p>Fingerprint-based device binding stops account sharing. You pay for your access — and only you get to use it.</p>
+    </div>
+</div>
+
+<section class="section-wrap" style="padding-top:64px">
+    <div class="section">
+        <div class="final-cta" style="background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:56px 32px;text-align:center">
+            <h2 style="font-size:clamp(24px,3vw,30px);font-weight:600;letter-spacing:-0.5px;margin-bottom:12px">Want to chat?</h2>
+            <p style="font-size:15px;color:var(--text-dim);margin-bottom:26px">We read every email. Tell us what you'd like to see next.</p>
+            <a href="{{ url_for('pages.contact') }}" class="btn btn-primary btn-lg">Get in touch
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,838 @@
+{% extends "_app_base.html" %}
+{% set active_page = "discovery" %}
+{% block title %}Discovery Center{% endblock %}
+{% block content %}
+
+<!-- ═══ DISCOVERY CENTER — Signal triage inbox ═══════════════════════ -->
+<div class="disc-page-header">
+    <div>
+        <div class="disc-page-title">Discovery Center</div>
+        <div class="disc-page-subtitle" id="discSubtitle">Triage incoming signals before they enter the Research pipeline</div>
+    </div>
+</div>
+
+<!-- Mode Tabs -->
+<div class="disc-mode-bar" id="discModeBar">
+    <button class="disc-mode-btn active" data-mode="inbox" onclick="setDiscMode('inbox')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        Inbox <span class="disc-tab-count" id="inboxCount">0</span>
+    </button>
+    <button class="disc-mode-btn" data-mode="scanners" onclick="setDiscMode('scanners')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Scanners
+    </button>
+    <button class="disc-mode-btn" data-mode="watchlists" onclick="setDiscMode('watchlists')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        Watchlists
+    </button>
+    <button class="disc-mode-btn" data-mode="research-queue" onclick="setDiscMode('research-queue')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Research Queue <span class="disc-tab-count" id="queueCount">0</span>
+    </button>
+</div>
+
+<!-- ═══ INBOX VIEW ═════════════════════════════════════════════════ -->
+<div id="inboxView">
+    <!-- Inbox Actions Bar -->
+    <div class="disc-action-bar">
+        <div class="disc-action-left">
+            <label class="disc-checkbox-wrap">
+                <input type="checkbox" id="inboxSelectAll" onchange="toggleSelectAll(this)">
+                <span class="disc-checkbox-label">Select all</span>
+            </label>
+            <span class="disc-selected-count" id="selectedCount">0 selected</span>
+        </div>
+        <div class="disc-action-right">
+            <button class="disc-bulk-btn disc-bulk-save" onclick="bulkAction('save')" id="bulkSaveBtn" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                Save
+            </button>
+            <button class="disc-bulk-btn disc-bulk-promote" onclick="bulkAction('promote')" id="bulkPromoteBtn" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+                Promote
+            </button>
+            <button class="disc-bulk-btn disc-bulk-dismiss" onclick="bulkAction('dismiss')" id="bulkDismissBtn" disabled>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Dismiss
+            </button>
+        </div>
+        <div class="disc-filter-tabs">
+            <button class="disc-filter-btn active" onclick="filterInbox('new')" data-filter="new">New</button>
+            <button class="disc-filter-btn" onclick="filterInbox('saved')" data-filter="saved">Saved</button>
+            <button class="disc-filter-btn" onclick="filterInbox('history')" data-filter="history">History</button>
+        </div>
+    </div>
+
+    <!-- Skeleton (shown on first load, replaced on render) -->
+    <div id="inboxSkeleton" class="disc-inbox-feed">
+        <div class="qr-skel disc-skel-item"></div>
+        <div class="qr-skel disc-skel-item"></div>
+        <div class="qr-skel disc-skel-item"></div>
+    </div>
+
+    <!-- Inbox Feed -->
+    <div id="inboxFeed" class="disc-inbox-feed" style="display:none"></div>
+    <div id="inboxEmpty" class="disc-empty-state" style="display:none">
+        <div class="disc-empty-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+        </div>
+        <div class="disc-empty-title">Inbox is clear</div>
+        <div class="disc-empty-desc">Run a scanner to surface new signals, or wait for quantitative and alert signals to arrive.</div>
+        <button class="disc-primary-btn" onclick="setDiscMode('scanners')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Go to Scanners
+        </button>
+    </div>
+</div>
+
+<!-- ═══ SCANNERS VIEW ══════════════════════════════════════════════ -->
+<div id="scannersView" style="display:none">
+    <div class="disc-dual-grid">
+        <!-- Saved Definitions -->
+        <div class="disc-panel">
+            <div class="disc-panel-header">
+                <h3>Saved scan definitions</h3>
+                <span class="disc-panel-count" id="scanDefCount">0 definitions</span>
+            </div>
+            <div class="disc-panel-body" id="scanDefBody">
+                <div class="disc-empty-inline"><p>No scan definitions yet</p></div>
+            </div>
+        </div>
+        <!-- Scan History -->
+        <div class="disc-panel">
+            <div class="disc-panel-header">
+                <h3>Scan history</h3>
+                <span class="disc-panel-count" id="scanHistCount">0 scans</span>
+            </div>
+            <div class="disc-table-wrap">
+                <table class="poc-table" id="scanHistTable">
+                    <thead><tr><th>Type</th><th class="num">Results</th><th>Hash</th><th class="num">Time</th></tr></thead>
+                    <tbody id="scanHistBody"></tbody>
+                </table>
+            </div>
+            <div class="disc-empty-inline" id="scanHistEmpty" style="display:none"><p>No scan history</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ WATCHLISTS VIEW ═══════════════════════════════════════════ -->
+<div id="watchlistsView" style="display:none">
+    <div class="disc-panel disc-full-width">
+        <div class="disc-panel-header">
+            <h3>Watchlists</h3>
+            <button class="disc-small-btn" onclick="createWatchlistPrompt()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New list
+            </button>
+        </div>
+        <div class="disc-panel-body" id="watchlistBody">
+            <div class="disc-empty-inline"><p>No watchlists yet</p><span>Create a watchlist to organize symbols.</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ RESEARCH QUEUE VIEW ═══════════════════════════════════════ -->
+<div id="researchQueueView" style="display:none">
+    <div class="disc-panel disc-full-width">
+        <div class="disc-panel-header">
+            <h3>Research queue</h3>
+            <span class="disc-panel-count" id="rqCount">0 candidates</span>
+        </div>
+        <div class="disc-table-wrap">
+            <table class="poc-table" id="rqTable">
+                <thead><tr>
+                    <th>Instrument</th><th class="num">Priority</th><th class="num">Confidence</th><th>Source</th><th class="num">Promoted</th><th>Status</th><th>Actions</th>
+                </tr></thead>
+                <tbody id="rqBody"></tbody>
+            </table>
+        </div>
+        <div class="disc-empty-state" id="rqEmpty" style="display:none">
+            <div class="disc-empty-icon">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
+            <div class="disc-empty-title">Research queue is empty</div>
+            <div class="disc-empty-desc">Promote signals from the Inbox to populate the Research Queue.</div>
+            <button class="disc-primary-btn" onclick="setDiscMode('inbox')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                Open Inbox
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ DISCOVERY CENTER STYLES (institutional design system) ══════ -->
+<style>
+/* Page header — calm chrome, section-scale title */
+.disc-page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.disc-page-title {
+    font-size: 20px; font-weight: 600; letter-spacing: -0.2px;
+    color: var(--text-primary); line-height: 1.3;
+}
+.disc-page-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+/* ── Mode bar (segmented nav) ────────────────────────────────── */
+.disc-mode-bar {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 6px; margin-bottom: 20px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.disc-mode-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; font-size: 12px; font-weight: 500;
+    border: 1px solid transparent; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+.disc-mode-btn:hover:not(.active) { color: var(--text-primary); background: var(--bg-card-hover); }
+.disc-mode-btn.active {
+    background: var(--accent-blue-soft); color: var(--accent);
+    border-color: var(--accent); font-weight: 600;
+}
+.disc-mode-btn svg { flex-shrink: 0; opacity: 0.85; }
+
+/* Tab count — the number is the hero */
+.disc-tab-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 18px; padding: 0 6px;
+    font-size: 11px; font-weight: 600; border-radius: var(--radius-xs);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    border: 1px solid var(--border-hairline); margin-left: 2px;
+}
+.disc-mode-btn.active .disc-tab-count {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+}
+
+/* ── Action bar ──────────────────────────────────────────────── */
+.disc-action-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.disc-action-left { display: flex; align-items: center; gap: 12px; }
+.disc-action-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.disc-checkbox-wrap {
+    display: flex; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+}
+.disc-checkbox-wrap input[type="checkbox"] {
+    width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent);
+}
+.disc-selected-count {
+    font-size: 12px; font-weight: 500; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.disc-bulk-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.disc-bulk-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.disc-bulk-btn:not(:disabled):hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-card-hover); }
+.disc-bulk-btn svg { flex-shrink: 0; }
+
+/* Filter segmented control */
+.disc-filter-tabs {
+    display: flex; gap: 2px; padding: 3px;
+    background: var(--bg-elevated); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm);
+}
+.disc-filter-btn {
+    padding: 5px 14px; font-size: 12px; font-weight: 500;
+    border: none; border-radius: var(--radius-xs); background: transparent;
+    color: var(--text-secondary); cursor: pointer; transition: color var(--transition), background var(--transition);
+    font-family: inherit;
+}
+.disc-filter-btn.active { background: var(--surface-raised); color: var(--text-primary); font-weight: 600; }
+.disc-filter-btn:hover:not(.active) { color: var(--text-primary); }
+
+/* ── Inbox feed ──────────────────────────────────────────────── */
+.disc-inbox-feed { display: flex; flex-direction: column; gap: 6px; }
+.disc-skel-item { height: 74px; border-radius: var(--radius); }
+
+.disc-inbox-item {
+    display: grid; grid-template-columns: 28px 1fr auto;
+    align-items: center; gap: 14px;
+    padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); transition: border-color var(--transition), background var(--transition);
+    cursor: pointer;
+}
+.disc-inbox-item:hover { border-color: var(--border-strong); background: var(--bg-card-hover); }
+.disc-inbox-item.selected { border-color: var(--accent); background: var(--accent-blue-soft); }
+
+.disc-inbox-check { display: flex; align-items: center; justify-content: center; }
+.disc-inbox-check input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+.disc-inbox-body { min-width: 0; }
+.disc-inbox-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+.disc-inbox-symbol {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+
+/* Priority tag — semantic color on data */
+.disc-inbox-priority {
+    font-size: 10px; font-weight: 500; padding: 2px 7px;
+    border-radius: var(--radius-xs); letter-spacing: 0.4px; text-transform: uppercase;
+}
+.disc-inbox-priority.high { color: var(--pos); background: var(--success-soft); border: 1px solid var(--success-border); }
+.disc-inbox-priority.medium { color: var(--warn); background: var(--warning-soft); border: 1px solid var(--warning-border); }
+.disc-inbox-priority.low { color: var(--text-tertiary); background: var(--bg-elevated); border: 1px solid var(--border-hairline); }
+
+/* Source badge — chrome, uses accent tint (informational, not semantic) */
+.disc-inbox-source {
+    font-size: 10px; font-weight: 500; padding: 2px 7px;
+    border-radius: var(--radius-xs); color: var(--accent);
+    background: var(--accent-blue-soft); border: 1px solid var(--border-hairline);
+    text-transform: uppercase; letter-spacing: 0.3px;
+}
+.disc-inbox-reasons {
+    font-size: 12px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.disc-inbox-time {
+    font-size: 11px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; margin-top: 3px;
+}
+
+.disc-inbox-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.disc-inbox-action {
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    background: transparent; cursor: pointer; transition: color var(--transition), border-color var(--transition), background var(--transition);
+    color: var(--text-secondary);
+}
+.disc-inbox-action:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-card-hover); }
+.disc-inbox-action.promote:hover { border-color: var(--pos); color: var(--pos); background: var(--success-soft); }
+.disc-inbox-action.dismiss:hover { border-color: var(--neg); color: var(--neg); background: var(--danger-soft); }
+.disc-inbox-action.save-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-blue-soft); }
+
+/* Priority group header */
+.disc-priority-group {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-tertiary);
+    padding: 12px 2px 6px; margin-top: 6px;
+}
+.disc-priority-group:first-child { margin-top: 0; }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.disc-small-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary);
+    cursor: pointer; transition: color var(--transition), border-color var(--transition), background var(--transition);
+    font-family: inherit;
+}
+.disc-small-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-blue-soft); }
+.disc-primary-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; font-size: 13px; font-weight: 600;
+    border: 1px solid var(--accent); border-radius: var(--radius-sm);
+    background: var(--accent); color: #fff;
+    cursor: pointer; transition: background var(--transition);
+    font-family: inherit; margin-top: 16px;
+}
+.disc-primary-btn:hover { background: var(--accent-hover); }
+
+/* ── Panels ──────────────────────────────────────────────────── */
+.disc-dual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.disc-panel {
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); overflow: hidden;
+}
+.disc-panel.disc-full-width { width: 100%; }
+.disc-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-hairline);
+}
+.disc-panel-header h3 {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-secondary); margin: 0;
+}
+.disc-panel-count {
+    font-size: 11px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.disc-panel-body { padding: 16px; }
+
+/* ── Tables (poc-table reused; restyled to hairline rows) ─────── */
+.disc-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.poc-table { width: 100%; border-collapse: collapse; }
+.poc-table thead th {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+    padding: 10px 14px; text-align: left;
+    background: var(--surface); border-bottom: 1px solid var(--border-hairline);
+    white-space: nowrap; position: sticky; top: 0; z-index: 1;
+}
+.poc-table thead th.num { text-align: right; }
+.poc-table tbody tr {
+    border-bottom: 1px solid var(--border-hairline);
+    transition: background var(--transition); cursor: pointer;
+}
+.poc-table tbody tr:last-child { border-bottom: none; }
+.poc-table tbody tr:hover { background: var(--bg-card-hover); }
+.poc-table td {
+    padding: 10px 14px; font-size: 13px; color: var(--text-secondary);
+    white-space: nowrap;
+}
+.poc-table td.num { text-align: right; }
+.poc-table .sym-cell { font-weight: 600; color: var(--text-primary); }
+.poc-table .mono {
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+
+/* Research Queue action buttons */
+.rq-action-btn {
+    padding: 4px 10px; font-size: 11px; font-weight: 500;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-xs);
+    background: transparent; cursor: pointer; transition: color var(--transition), border-color var(--transition), background var(--transition);
+    color: var(--text-secondary); font-family: inherit;
+}
+.rq-action-btn.activate:hover { color: var(--pos); background: var(--success-soft); border-color: var(--success-border); }
+.rq-action-btn.reject:hover { color: var(--neg); background: var(--danger-soft); border-color: var(--danger-border); }
+
+/* Scan definition card */
+.disc-scandef-card {
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm);
+}
+.disc-scandef-card:last-child { margin-bottom: 0; }
+.disc-scandef-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.disc-scandef-meta {
+    font-size: 11px; color: var(--text-tertiary); margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.disc-scandef-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+
+/* Watchlist cards */
+.disc-wl-card {
+    padding: 14px; margin-bottom: 8px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm);
+}
+.disc-wl-card:last-child { margin-bottom: 0; }
+.disc-wl-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.disc-wl-desc { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.disc-wl-items { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.disc-wl-chip {
+    font-size: 12px; font-weight: 500; padding: 3px 10px;
+    background: var(--bg-elevated); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-xs); color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Status badges (Research Queue + inbox history) */
+.rq-status {
+    font-size: 10px; font-weight: 500; padding: 2px 8px;
+    border-radius: var(--radius-xs); text-transform: uppercase; letter-spacing: 0.4px;
+    border: 1px solid transparent;
+}
+.rq-status.pending { color: var(--warn); background: var(--warning-soft); border-color: var(--warning-border); }
+.rq-status.active { color: var(--accent); background: var(--accent-blue-soft); border-color: var(--border-hairline); }
+.rq-status.rejected { color: var(--neg); background: var(--danger-soft); border-color: var(--danger-border); }
+.rq-status.dismissed { color: var(--text-tertiary); background: var(--bg-elevated); border-color: var(--border-hairline); }
+.rq-status.expired { color: var(--text-tertiary); background: var(--bg-elevated); border-color: var(--border-hairline); }
+.rq-status.promoted { color: var(--pos); background: var(--success-soft); border-color: var(--success-border); }
+.rq-status.snapshot_created { color: var(--pos); background: var(--success-soft); border-color: var(--success-border); }
+
+/* ── Empty states ────────────────────────────────────────────── */
+.disc-empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 56px 32px; min-height: 260px;
+}
+.disc-empty-icon {
+    width: 52px; height: 52px; border-radius: var(--radius);
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-tertiary); margin-bottom: 16px;
+}
+.disc-empty-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.disc-empty-desc { font-size: 13px; color: var(--text-secondary); max-width: 380px; line-height: 1.5; }
+.disc-empty-inline { text-align: center; padding: 32px 16px; color: var(--text-tertiary); }
+.disc-empty-inline p { font-size: 13px; font-weight: 500; margin: 0 0 4px; color: var(--text-secondary); }
+.disc-empty-inline span { font-size: 12px; }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+/* Tablet & below: stack the dual grid, wrap the mode bar. */
+@media (max-width: 900px) {
+    .disc-dual-grid { grid-template-columns: 1fr; }
+    .disc-mode-bar { flex-wrap: wrap; }
+    .disc-mode-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Mobile: stack the action bar, reflow the inbox row, scroll tables. */
+@media (max-width: 768px) {
+    .disc-page-header { margin-bottom: 16px; }
+
+    /* Action bar → vertical stack; each cluster spans full width */
+    .disc-action-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .disc-action-left { justify-content: space-between; }
+    .disc-action-right { margin-left: 0; flex-wrap: wrap; }
+    .disc-bulk-btn { flex: 1 1 auto; justify-content: center; }
+    .disc-filter-tabs { width: 100%; }
+    .disc-filter-btn { flex: 1 1 0; text-align: center; }
+
+    /* Inbox row → checkbox + body on top, actions on their own line */
+    .disc-inbox-item { grid-template-columns: 28px 1fr; }
+    .disc-inbox-actions { grid-column: 1 / -1; justify-content: flex-end; margin-top: 8px; }
+
+    /* Tables scroll horizontally with a frozen first column */
+    .disc-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .poc-table thead th:first-child,
+    .poc-table tbody td:first-child {
+        position: sticky; left: 0; z-index: 2;
+        background: var(--surface);
+    }
+    .poc-table thead th:first-child { z-index: 3; }
+    .poc-table tbody tr:hover td:first-child { background: var(--bg-card-hover); }
+}
+
+/* Compact phones (≤390px): tighten padding, let mode labels breathe. */
+@media (max-width: 400px) {
+    .disc-mode-btn { padding: 7px 10px; }
+    .disc-inbox-item { padding: 10px 12px; gap: 10px; }
+    .disc-action-bar { padding: 10px 12px; }
+    .disc-empty-state { padding: 40px 20px; min-height: 200px; }
+}
+
+/* Motion — honor reduced-motion for every page-local transition. */
+@media (prefers-reduced-motion: reduce) {
+    .disc-mode-btn, .disc-bulk-btn, .disc-filter-btn, .disc-small-btn,
+    .disc-primary-btn, .disc-inbox-item, .disc-inbox-action,
+    .poc-table tbody tr, .rq-action-btn { transition: none; }
+}
+</style>
+
+<!-- ═══ DISCOVERY CENTER JAVASCRIPT ═══════════════════════════════ -->
+<script>
+let _discMode = 'inbox';
+let _inboxFilter = 'new';
+let _selectedItems = new Set();
+let _inboxLoaded = false;
+
+// ── Mode Switching ─────────────────────────────────────────
+function setDiscMode(mode) {
+    _discMode = mode;
+    document.querySelectorAll('#discModeBar .disc-mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    ['inboxView', 'scannersView', 'watchlistsView', 'researchQueueView'].forEach(id => {
+        document.getElementById(id).style.display = 'none';
+    });
+    const subtitles = {
+        'inbox': 'Triage incoming signals before they enter the Research pipeline',
+        'scanners': 'Define and run market scans',
+        'watchlists': 'Static collections of instruments',
+        'research-queue': 'Candidates awaiting thesis creation'
+    };
+    document.getElementById('discSubtitle').textContent = subtitles[mode] || '';
+
+    if (mode === 'inbox') { document.getElementById('inboxView').style.display = ''; renderInbox(); }
+    else if (mode === 'scanners') { document.getElementById('scannersView').style.display = ''; renderScanners(); }
+    else if (mode === 'watchlists') { document.getElementById('watchlistsView').style.display = ''; renderWatchlists(); }
+    else if (mode === 'research-queue') { document.getElementById('researchQueueView').style.display = ''; renderResearchQueue(); }
+}
+
+// ── Inbox Rendering ────────────────────────────────────────
+function filterInbox(filter) {
+    _inboxFilter = filter;
+    document.querySelectorAll('.disc-filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === filter);
+    });
+    _selectedItems.clear();
+    renderInbox();
+}
+
+function renderInbox() {
+    const all = QuantResearch.InboxRepository.getAll();
+    let items;
+    if (_inboxFilter === 'new') items = all.filter(i => i.status === 'new');
+    else if (_inboxFilter === 'saved') items = all.filter(i => i.status === 'saved');
+    else items = all.filter(i => ['promoted', 'dismissed', 'expired'].includes(i.status));
+
+    // Update counts
+    const newCount = all.filter(i => i.status === 'new').length;
+    document.getElementById('inboxCount').textContent = newCount;
+
+    // First render: retire the skeleton
+    const skel = document.getElementById('inboxSkeleton');
+    if (skel) skel.style.display = 'none';
+    _inboxLoaded = true;
+
+    const feed = document.getElementById('inboxFeed');
+    const empty = document.getElementById('inboxEmpty');
+
+    if (items.length === 0) {
+        feed.innerHTML = '';
+        feed.style.display = 'none';
+        empty.style.display = '';
+        return;
+    }
+    empty.style.display = 'none';
+    feed.style.display = '';
+
+    // Sort by priority
+    items.sort((a, b) => (b.priority_score || 0) - (a.priority_score || 0));
+
+    // Group by priority band
+    const groups = { high: [], medium: [], low: [] };
+    items.forEach(item => {
+        const band = QuantResearch.InboxRepository.getPriorityBand(item.priority_score || 50);
+        groups[band].push(item);
+    });
+
+    let html = '';
+    for (const [band, bandItems] of Object.entries(groups)) {
+        if (bandItems.length === 0) continue;
+        html += `<div class="disc-priority-group">${band} priority (${bandItems.length})</div>`;
+        bandItems.forEach(item => {
+            const band = QuantResearch.InboxRepository.getPriorityBand(item.priority_score || 50);
+            const reasons = (item.reasons || []).join(', ') || 'No reasons';
+            const sourceType = item.source?.source_type || 'unknown';
+            const time = _timeAgo(item.received_at);
+            const checked = _selectedItems.has(item.inbox_item_id) ? 'checked' : '';
+            const isHistory = ['promoted', 'dismissed', 'expired'].includes(item.status);
+
+            html += `
+            <div class="disc-inbox-item ${checked ? 'selected' : ''}" data-id="${item.inbox_item_id}">
+                <div class="disc-inbox-check">
+                    <input type="checkbox" ${checked} onchange="toggleSelect('${item.inbox_item_id}', this)" ${isHistory ? 'disabled' : ''}>
+                </div>
+                <div class="disc-inbox-body" onclick="openIntelDrawer('${item.instrument_id}', '${item.symbol}')">
+                    <div class="disc-inbox-header">
+                        <span class="disc-inbox-symbol">${item.symbol}</span>
+                        <span class="disc-inbox-priority ${band}">${band}</span>
+                        <span class="disc-inbox-source">${sourceType}</span>
+                        ${isHistory ? `<span class="rq-status ${item.status}">${item.status}</span>` : ''}
+                    </div>
+                    <div class="disc-inbox-reasons">${reasons}</div>
+                    <div class="disc-inbox-time">${time} · Score ${item.priority_score || 50} · Conf ${item.confidence || 0}</div>
+                </div>
+                ${!isHistory ? `
+                <div class="disc-inbox-actions">
+                    <button class="disc-inbox-action promote" title="Promote to Research" onclick="event.stopPropagation(); singleAction('${item.inbox_item_id}', 'promote')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><line x1="12" y1="6" x2="12" y2="18"/></svg>
+                    </button>
+                    <button class="disc-inbox-action save-btn" title="Save for later" onclick="event.stopPropagation(); singleAction('${item.inbox_item_id}', 'save')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                    </button>
+                    <button class="disc-inbox-action dismiss" title="Dismiss" onclick="event.stopPropagation(); singleAction('${item.inbox_item_id}', 'dismiss')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>` : ''}
+            </div>`;
+        });
+    }
+    feed.innerHTML = html;
+    updateBulkButtons();
+}
+
+// ── Selection & Bulk ───────────────────────────────────────
+function toggleSelect(id, cb) {
+    if (cb.checked) _selectedItems.add(id);
+    else _selectedItems.delete(id);
+    cb.closest('.disc-inbox-item').classList.toggle('selected', cb.checked);
+    updateBulkButtons();
+}
+
+function toggleSelectAll(cb) {
+    const boxes = document.querySelectorAll('#inboxFeed .disc-inbox-check input:not(:disabled)');
+    boxes.forEach(b => {
+        b.checked = cb.checked;
+        const id = b.closest('.disc-inbox-item').dataset.id;
+        if (cb.checked) _selectedItems.add(id);
+        else _selectedItems.delete(id);
+        b.closest('.disc-inbox-item').classList.toggle('selected', cb.checked);
+    });
+    updateBulkButtons();
+}
+
+function updateBulkButtons() {
+    const count = _selectedItems.size;
+    document.getElementById('selectedCount').textContent = `${count} selected`;
+    document.getElementById('bulkSaveBtn').disabled = count === 0;
+    document.getElementById('bulkPromoteBtn').disabled = count === 0;
+    document.getElementById('bulkDismissBtn').disabled = count === 0;
+}
+
+function bulkAction(action) {
+    if (_selectedItems.size === 0) return;
+    const ids = Array.from(_selectedItems);
+    QuantResearch.InboxRepository.bulkProcess(ids, action);
+    _selectedItems.clear();
+    document.getElementById('inboxSelectAll').checked = false;
+    renderInbox();
+    updateQueueCount();
+}
+
+function singleAction(id, action) {
+    QuantResearch.InboxRepository.processItem(id, action);
+    _selectedItems.delete(id);
+    renderInbox();
+    updateQueueCount();
+}
+
+// ── Intel Drawer (Right context — Intelligence Only) ───────
+function openIntelDrawer(instrumentId, symbol) {
+    // Re-use the existing stock drawer but only show intelligence data
+    if (typeof openDrawerForSymbol === 'function') {
+        openDrawerForSymbol(symbol);
+    }
+}
+
+// ── Scanners ───────────────────────────────────────────────
+function renderScanners() {
+    const defs = QuantResearch.ScannerRepository.getAll();
+    const defKeys = Object.keys(defs);
+    document.getElementById('scanDefCount').textContent = `${defKeys.length} definitions`;
+
+    const defBody = document.getElementById('scanDefBody');
+    if (defKeys.length === 0) {
+        defBody.innerHTML = '<div class="disc-empty-inline"><p>No scan definitions yet</p></div>';
+    } else {
+        defBody.innerHTML = defKeys.map(k => {
+            const d = defs[k];
+            return `
+            <div class="disc-scandef-card">
+                <div class="disc-scandef-name">${d.name}</div>
+                <div class="disc-scandef-meta">v${d.version} · ${d.schedule} · ${d.is_active ? 'Active' : 'Inactive'}</div>
+                <div class="disc-scandef-footer">
+                    <span style="font-size:11px;color:var(--text-tertiary)">Filters: ${JSON.stringify(d.filters).substring(0, 60)}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // Scan History
+    const scans = QuantResearch.ScanRepository.getAll();
+    document.getElementById('scanHistCount').textContent = `${scans.length} scans`;
+    const histBody = document.getElementById('scanHistBody');
+    const histEmpty = document.getElementById('scanHistEmpty');
+
+    if (scans.length === 0) {
+        histBody.innerHTML = '';
+        histEmpty.style.display = '';
+    } else {
+        histEmpty.style.display = 'none';
+        histBody.innerHTML = scans.slice(0, 20).map(s => `
+            <tr>
+                <td class="sym-cell">${s.scan_type}</td>
+                <td class="mono num">${s.result_count}</td>
+                <td class="mono" style="font-size:11px;color:var(--text-tertiary)">${(s.result_hash || '—').substring(0, 12)}…</td>
+                <td class="num" style="font-size:11px;color:var(--text-tertiary)">${_timeAgo(s.executed_at)}</td>
+            </tr>
+        `).join('');
+    }
+}
+
+// ── Watchlists ─────────────────────────────────────────────
+function renderWatchlists() {
+    const lists = QuantResearch.WatchlistRepository.getAllLists();
+    const names = Object.keys(lists);
+    const body = document.getElementById('watchlistBody');
+
+    if (names.length === 0) {
+        body.innerHTML = '<div class="disc-empty-inline"><p>No watchlists yet</p><span>Create a watchlist to organize symbols.</span></div>';
+        return;
+    }
+
+    body.innerHTML = names.map(name => {
+        const items = lists[name];
+        const meta = QuantResearch.WatchlistRepository.getListMeta(name);
+        return `
+        <div class="disc-wl-card">
+            <div class="disc-wl-name">${name}</div>
+            <div class="disc-wl-desc">${meta?.description || ''} · ${items.length} symbols</div>
+            <div class="disc-wl-items">
+                ${items.map(i => `<span class="disc-wl-chip">${i.symbol}${i.origin?.type !== 'manual' ? ' <small style="color:var(--accent)">(' + i.origin.type + ')</small>' : ''}</span>`).join('')}
+                ${items.length === 0 ? '<span style="font-size:12px;color:var(--text-tertiary)">Empty list</span>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function createWatchlistPrompt() {
+    const name = prompt('Watchlist name:');
+    if (!name) return;
+    const desc = prompt('Description (optional):') || '';
+    QuantResearch.WatchlistRepository.createList(name, desc);
+    renderWatchlists();
+}
+
+// ── Research Queue ─────────────────────────────────────────
+function renderResearchQueue() {
+    const candidates = QuantResearch.ResearchCandidateRepository.getAll();
+    document.getElementById('rqCount').textContent = `${candidates.length} candidates`;
+    document.getElementById('queueCount').textContent = candidates.filter(c => c.status === 'pending' || c.status === 'active').length;
+
+    const body = document.getElementById('rqBody');
+    const empty = document.getElementById('rqEmpty');
+
+    if (candidates.length === 0) {
+        body.innerHTML = '';
+        empty.style.display = '';
+        return;
+    }
+    empty.style.display = 'none';
+
+    body.innerHTML = candidates.map(c => {
+        const isTerminal = ['snapshot_created', 'rejected'].includes(c.status);
+        return `
+        <tr>
+            <td class="sym-cell">${c.symbol} <small style="color:var(--text-tertiary)">${c.instrument_id}</small></td>
+            <td class="mono num">${c.priority_score}</td>
+            <td class="mono num">${c.confidence}</td>
+            <td><span class="disc-inbox-source">${c.provenance?.source_type || '—'}</span></td>
+            <td class="num" style="font-size:11px;color:var(--text-tertiary)">${_timeAgo(c.promoted_at)}</td>
+            <td><span class="rq-status ${c.status}">${c.status}</span></td>
+            <td>
+                ${!isTerminal ? `
+                    ${c.status === 'pending' ? `<button class="rq-action-btn activate" onclick="transitionCandidate('${c.candidate_id}', 'activate')">Activate</button>` : ''}
+                    <button class="rq-action-btn reject" onclick="transitionCandidate('${c.candidate_id}', 'reject')">Reject</button>
+                ` : '—'}
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function transitionCandidate(candidateId, action) {
+    const result = QuantResearch.ResearchCandidateRepository.transition(candidateId, action);
+    if (!result.success) {
+        console.error('[Discovery] Transition blocked:', result.error);
+    }
+    renderResearchQueue();
+}
+
+function updateQueueCount() {
+    const candidates = QuantResearch.ResearchCandidateRepository.getAll();
+    document.getElementById('queueCount').textContent = candidates.filter(c => c.status === 'pending' || c.status === 'active').length;
+}
+
+// ── Utilities ──────────────────────────────────────────────
+function _timeAgo(isoStr) {
+    if (!isoStr) return '—';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ── Init ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    setDiscMode('inbox');
+});
+</script>
+
+{% endblock %}

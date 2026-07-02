@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Subscribe — AI Smart Screener</title>
+    <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();function toggleTheme(){var c=document.documentElement.getAttribute('data-theme')||'dark';var n=c==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('theme',n);}</script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root, [data-theme="dark"]{
+            --bg:#0A0E14; --panel:#111720; --panel-soft:#161D28;
+            --border:#1E2630; --border-light:#2A333F; --text:#E7EBF2; --muted:#9AA3B2;
+            --primary:#4C8DFF; --primary-hover:#6BA0FF; --primary-soft:rgba(76,141,255,.12);
+            --green:#2FB67A; --red:#E5484D;
+            --header-text:#E7EBF2;
+        }
+        [data-theme="light"]{
+            --bg:#F7F8FA; --panel:#FFFFFF; --panel-soft:#FFFFFF;
+            --border:#E6E9EE; --border-light:#D4D9E0; --text:#0B0F17; --muted:#5B6472;
+            --primary:#2F6FE0; --primary-hover:#4C8DFF; --primary-soft:rgba(47,111,224,.10);
+            --green:#138A5E; --red:#D13B40;
+            --header-text:#0B0F17;
+        }
+        *{margin:0;padding:0;box-sizing:border-box}
+        :root{--mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
+        body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:32px 20px}
+        .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+        .theme-toggle{background:transparent;border:1px solid var(--border-light);border-radius:6px;color:var(--muted);padding:6px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;transition:border-color .15s,color .15s;margin-left:10px}
+        .theme-toggle:hover{border-color:var(--primary);color:var(--primary)}
+        .theme-toggle svg{width:14px;height:14px;display:none}
+        [data-theme="dark"] .theme-toggle .icon-sun{display:block}
+        [data-theme="light"] .theme-toggle .icon-moon{display:block}
+
+        .wrap{max-width:780px;margin:0 auto}
+        .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+        .brand{font-size:16px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:9px;letter-spacing:-0.2px}
+        .brand img{height:24px;width:auto;display:block}
+        .user-mini{font-size:12px;color:var(--muted)}
+        .user-mini a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--muted)}
+        .user-mini a:hover{color:var(--primary);border-color:var(--primary)}
+
+        .header-card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:28px;margin-bottom:24px;text-align:center}
+        .header-card .icon{width:48px;height:48px;border-radius:10px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;background:var(--primary-soft);color:var(--primary)}
+        .header-card .icon svg{width:24px;height:24px}
+        .header-card h1{font-size:20px;font-weight:600;margin-bottom:8px;color:var(--header-text)}
+        .header-card .sub{font-size:13px;color:var(--muted);line-height:1.55;max-width:520px;margin:0 auto}
+
+        .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:24px}
+        .plan{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px;display:flex;flex-direction:column;transition:border-color .15s}
+        .plan:hover{border-color:var(--border-light)}
+        .plan h3{font-size:14px;color:var(--text);font-weight:600;margin-bottom:6px}
+        .plan .duration{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.7px;margin-bottom:14px}
+        .plan .price{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:24px;font-weight:600;color:var(--primary);margin-bottom:2px}
+        .plan .price .small{font-size:11px;color:var(--muted);font-weight:400;letter-spacing:0.4px}
+        .plan .per-day{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:auto;padding-top:14px}
+
+        .cta{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:22px;text-align:center}
+        .cta h2{font-size:13px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px}
+        .cta p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px}
+        .cta .contact{font-size:13px;color:var(--text)}
+        .cta .contact strong{color:var(--primary);font-weight:500}
+
+        .empty{padding:48px;text-align:center;color:var(--muted);font-size:13px;background:var(--panel);border:1px solid var(--border);border-radius:8px}
+
+        .flash{margin-bottom:18px;padding:11px 15px;border-radius:6px;font-size:13px;font-weight:500;text-align:center}
+        .flash.ok{background:rgba(47,182,122,0.1);border:1px solid rgba(47,182,122,0.3);color:var(--green)}
+        .flash.warn{background:rgba(229,72,77,0.1);border:1px solid rgba(229,72,77,0.3);color:var(--red)}
+
+        .pending-card{background:var(--panel);border:1px solid var(--primary);border-radius:8px;padding:22px 24px;margin-bottom:24px;display:flex;align-items:flex-start;gap:18px}
+        .pending-card .ic{flex-shrink:0;width:44px;height:44px;border-radius:10px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center}
+        .pending-card .ic svg{width:22px;height:22px}
+        .pending-card h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+        .pending-card .meta{font-size:12.5px;color:var(--muted);line-height:1.65}
+        .pending-card .meta strong{color:var(--text)}
+        .pending-card .mono{font-family:var(--mono);font-size:11.5px}
+
+        .proof-section{margin-top:32px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:24px}
+        .proof-section .head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+        .proof-section .head-ic{width:32px;height:32px;border-radius:8px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:600;font-size:13px}
+        .proof-section h2{font-size:15px;font-weight:600;color:var(--text)}
+        .proof-section .sub{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:18px}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+        .form-field{margin-bottom:12px}
+        .form-field label{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;font-weight:600;margin-bottom:5px}
+        .form-field input,.form-field select,.form-field textarea{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border-color 0.15s}
+        .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary-soft)}
+        .form-field textarea{resize:vertical;min-height:60px}
+        .form-field .hint{font-size:11px;color:var(--muted);margin-top:4px}
+        .btn-submit{background:var(--primary);color:#fff;border:none;padding:11px 22px;border-radius:6px;font-size:13.5px;font-weight:500;cursor:pointer;transition:background 0.15s}
+        .btn-submit:hover{background:var(--primary-hover)}
+        @media (max-width:560px){.form-row{grid-template-columns:1fr}.plans{grid-template-columns:1fr}}
+    </style>
+
+    {% set flash_map = {
+        'payment-submitted': ('Payment proof submitted. An admin will review and activate your subscription soon.', 'ok'),
+        'utr-too-short': ('UTR / Transaction Ref is too short — please double-check and resubmit.', 'warn'),
+        'plan-not-found': ('Selected plan is no longer available. Please pick another.', 'warn'),
+        'screenshot-bad-ext': ('Screenshot must be PNG, JPG, JPEG, WEBP, or GIF.', 'warn'),
+        'screenshot-too-large': ('Screenshot is too large (max 5 MB).', 'warn'),
+        'bad-input': ('Could not submit — please check the form and try again.', 'warn'),
+    } %}
+</head>
+<body>
+<div class="wrap">
+    <div class="top">
+        <a href="{{ url_for('pages.index') }}" class="brand" style="text-decoration:none"><img src="{{ url_for('static', filename='logo.svg') }}" alt=""> AI Smart Screener</a>
+        <div class="user-mini" style="display:flex;align-items:center">
+            <span>{{ user.email }} &nbsp;·&nbsp; <a href="{{ url_for('auth.logout') }}">Sign out</a></span>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle theme">
+                <svg class="icon-sun"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    {% if msg in flash_map %}
+    <div class="flash {{ flash_map[msg][1] }}">{{ flash_map[msg][0] }}</div>
+    {% endif %}
+
+    {% if pending %}
+    <div class="pending-card">
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div style="flex:1">
+            <h3>Payment proof under review</h3>
+            <div class="meta">
+                You submitted payment for <strong>{{ pending.plan_name or 'a plan' }}</strong>{% if pending.plan_price %} (&#8377;{{ pending.plan_price }}){% endif %} on
+                <strong>{{ pending.submitted_at[:16].replace('T', ' ') }}</strong> UTC.<br>
+                UTR: <span class="mono">{{ pending.utr }}</span><br>
+                Admin will verify and activate your subscription. You can re-submit below if you made an error.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="header-card">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <h1>Your access has ended</h1>
+        <div class="sub">
+            Your free trial is over and you don't have an active subscription. Pick a plan,
+            pay using the UPI ID or QR code, then submit your transaction proof below — an
+            admin will activate your subscription within a few hours.
+        </div>
+    </div>
+
+    {% if plans %}
+    <div class="plans">
+        {% for p in plans %}
+        <div class="plan">
+            <h3>{{ p.name }}</h3>
+            <div class="duration">{{ p.duration_days }} days</div>
+            <div class="price">&#8377;{{ p.price_inr }} <span class="small">/ {{ p.duration_days }}d</span></div>
+            {% if p.duration_days >= 7 %}
+            <div class="per-day">&#8377;{{ '%.2f'|format(p.price_inr / p.duration_days) }} / day</div>
+            {% endif %}
+            {% if p.upi_id or p.qr_image_path %}
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
+                {% if p.qr_image_path %}
+                <img src="{{ url_for('pages.serve_qr', filename=p.qr_image_path.split('/',1)[-1]) }}"
+                     alt="Payment QR" style="width:100px;height:100px;object-fit:contain;background:#fff;padding:4px;border-radius:6px;margin-bottom:8px">
+                {% endif %}
+                {% if p.upi_id %}
+                <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px">UPI ID</div>
+                <div style="font-family:'SF Mono',Monaco,monospace;font-size:12px;color:var(--text);word-break:break-all">{{ p.upi_id }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">No subscription plans are currently available. Please contact the administrator.</div>
+    {% endif %}
+
+    {% if plans %}
+    <div class="proof-section">
+        <div class="head">
+            <div class="head-ic">2</div>
+            <h2>Submit payment proof</h2>
+        </div>
+        <p class="sub">After paying, fill in the UTR (transaction reference from your UPI / bank app) and upload a screenshot. We verify usually within a few hours.</p>
+        <form method="POST" action="{{ url_for('pages.submit_payment') }}" enctype="multipart/form-data">
+            <div class="form-row">
+                <div class="form-field">
+                    <label>Plan you paid for</label>
+                    <select name="plan_id" required>
+                        {% for p in plans %}
+                        <option value="{{ p.id }}" {% if pending and pending.plan_id == p.id %}selected{% endif %}>{{ p.name }} — &#8377;{{ p.price_inr }} / {{ p.duration_days }}d</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>UTR / Transaction reference</label>
+                    <input name="utr" type="text" minlength="4" maxlength="40" placeholder="e.g. 412847291038" required {% if pending %}value="{{ pending.utr }}"{% endif %}>
+                </div>
+            </div>
+            <div class="form-field">
+                <label>Payment screenshot (optional but recommended)</label>
+                <input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+                <div class="hint">PNG / JPG / WEBP, max 5 MB.</div>
+            </div>
+            <div class="form-field">
+                <label>Note for admin (optional)</label>
+                <textarea name="note" maxlength="500" placeholder="Anything we should know about this payment?">{% if pending and pending.note %}{{ pending.note }}{% endif %}</textarea>
+            </div>
+            <button type="submit" class="btn-submit">{% if pending %}Resubmit proof{% else %}Submit payment proof{% endif %}</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <div class="cta" style="margin-top:32px">
+        <h2>Need help?</h2>
+        <p>Having trouble with payment or didn't get a UTR? Reach out and we'll sort it.</p>
+        <div class="contact">
+            Contact: <strong>sumit.pal8070@gmail.com</strong> &nbsp;or&nbsp; <strong>swastik_tyagi@creativefrenzy.in</strong>
+        </div>
+    </div>
+</div>
+</body>
+</html>

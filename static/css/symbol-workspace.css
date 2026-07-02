@@ -1,0 +1,733 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   QuantResearch — Stock Detail (Symbol Workspace)
+   Institutional dark terminal. The number is the hero.
+   Reuses v3.css tokens: --accent --pos --neg --warn --text-* --surface-*
+   --border-hairline --border-strong --canvas. Page-specific styles only.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+    --sd-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --sd-ease: cubic-bezier(.2, 0, 0, 1);
+    --sd-motion: 130ms;
+}
+
+/* ─── BACK / BREADCRUMB ───────────────────────────────────────────── */
+
+.sd-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 4px 0 12px;
+    transition: color var(--sd-motion) var(--sd-ease);
+}
+.sd-back:hover { color: var(--text-secondary); }
+.sd-back svg { width: 14px; height: 14px; }
+
+
+/* ─── HEADER ──────────────────────────────────────────────────────── */
+
+.sd-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-hairline);
+}
+
+.sd-symbol {
+    font-family: var(--sd-mono);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.sd-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+.sd-sector {
+    font-size: 11px;
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    padding: 3px 10px;
+    border-radius: 4px;
+}
+
+.sd-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+.sd-badge-hc {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.sd-badge-golden {
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 10%, transparent);
+    border-color: color-mix(in srgb, var(--warn) 28%, transparent);
+}
+
+/* Regime / macro chip — colored dot, no fill */
+.sd-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: var(--sd-mono);
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+}
+.sd-chip-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    flex: 0 0 auto;
+}
+.sd-chip-pos .sd-chip-dot { background: var(--pos); }
+.sd-chip-neg .sd-chip-dot { background: var(--neg); }
+.sd-chip-warn .sd-chip-dot { background: var(--warn); }
+
+/* Price block */
+.sd-price-block { text-align: right; }
+.sd-price {
+    font-family: var(--sd-mono);
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+.sd-change {
+    font-family: var(--sd-mono);
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.sd-change.pos { color: var(--pos); }
+.sd-change.neg { color: var(--neg); }
+
+.sd-cmp-tag {
+    font-family: var(--sd-mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 4px;
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.3px;
+}
+.sd-cmp-tag .sd-chip-dot { width: 5px; height: 5px; }
+.sd-cmp-above { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); }
+.sd-cmp-above .sd-chip-dot { background: var(--warn); }
+.sd-cmp-below { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.sd-cmp-below .sd-chip-dot { background: var(--accent); }
+.sd-cmp-in { color: var(--pos); background: color-mix(in srgb, var(--pos) 10%, transparent); }
+.sd-cmp-in .sd-chip-dot { background: var(--pos); }
+
+
+/* ─── PANELS ──────────────────────────────────────────────────────── */
+
+.sd-panel {
+    background: var(--surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+.sd-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.sd-panel-head h3 {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0;
+    flex: 1;
+}
+.sd-panel-head svg {
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    flex: 0 0 auto;
+}
+.sd-panel-head .sd-head-aside {
+    font-family: var(--sd-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+.sd-panel-body { padding: 16px; }
+
+
+/* ─── LAYOUT GRID ─────────────────────────────────────────────────── */
+
+.sd-chart-row { margin-bottom: 16px; }
+
+.sd-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 16px;
+    align-items: start;
+}
+@media (max-width: 980px) {
+    .sd-grid { grid-template-columns: 1fr; }
+}
+
+
+/* ─── SCORE HERO (arc gauge) ──────────────────────────────────────── */
+
+.sd-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 16px;
+}
+.sd-gauge-wrap {
+    position: relative;
+    width: 200px;
+    max-width: 100%;
+}
+.sd-gauge { width: 100%; height: auto; display: block; overflow: visible; }
+.sd-gauge-track {
+    fill: none;
+    stroke: var(--border-hairline);
+    stroke-width: 10;
+    stroke-linecap: round;
+}
+.sd-gauge-fill {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 600ms var(--sd-ease), stroke 200ms var(--sd-ease);
+}
+.sd-gauge-fill.band-pos { stroke: var(--pos); }
+.sd-gauge-fill.band-neg { stroke: var(--neg); }
+
+.sd-gauge-center {
+    position: absolute;
+    top: 54%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+.sd-gauge-num {
+    font-family: var(--sd-mono);
+    font-size: 46px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -1px;
+}
+.sd-gauge-grade {
+    font-family: var(--sd-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+.sd-gauge-cap {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+/* Two tier chips beneath the gauge */
+.sd-tier-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    width: 100%;
+}
+.sd-tier {
+    flex: 1;
+    text-align: center;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    border-radius: 6px;
+    padding: 8px 6px;
+}
+.sd-tier-label {
+    font-size: 8.5px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    font-weight: 600;
+}
+.sd-tier-val {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-family: var(--sd-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 4px;
+}
+.sd-tier-val .sd-chip-dot { width: 6px; height: 6px; }
+.sd-tier-val.t-high .sd-chip-dot { background: var(--pos); }
+.sd-tier-val.t-med .sd-chip-dot  { background: var(--warn); }
+.sd-tier-val.t-low .sd-chip-dot  { background: var(--neg); }
+
+
+/* ─── FACTOR DNA RADAR ────────────────────────────────────────────── */
+
+.sd-radar-wrap {
+    display: grid;
+    grid-template-columns: 1fr 150px;
+    gap: 16px;
+    align-items: center;
+}
+@media (max-width: 1180px) {
+    .sd-radar-wrap { grid-template-columns: 1fr; }
+}
+.sd-radar-box {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+    /* Vertical padding gives the R+ axis labels (which render outside the
+       240 viewBox via overflow:visible) room so they never collide with the
+       panel head chips above or the factor table beside them. */
+    margin: 6px auto;
+    padding: 10px 6px;
+}
+.sd-radar-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.sd-radar-ring { fill: none; stroke: var(--border-hairline); stroke-width: 1; }
+.sd-radar-spoke { stroke: var(--border-hairline); stroke-width: 1; }
+.sd-radar-poly {
+    fill: var(--accent);
+    fill-opacity: 0.12;
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+}
+.sd-radar-vtx { fill: var(--accent); }
+.sd-radar-vtx.weak { fill: var(--neg); }
+.sd-radar-label {
+    font-family: var(--sd-mono);
+    font-size: 10px;
+    fill: var(--text-secondary);
+}
+
+/* Adjacent compact factor table */
+.sd-radar-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.sd-radar-table td {
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.sd-radar-table tr:last-child td { border-bottom: none; }
+.sd-radar-t-label { color: var(--text-secondary); }
+.sd-radar-t-val {
+    text-align: right;
+    font-family: var(--sd-mono);
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.sd-radar-t-val.weak { color: var(--neg); }
+
+
+/* ─── PRICE CHART ─────────────────────────────────────────────────── */
+
+.sd-chart-container {
+    position: relative;
+    width: 100%;
+    /* Fluid height: scales with viewport but clamped to a sensible band so it
+       stays readable on desktop and never dominates a small phone screen. */
+    height: clamp(300px, 46vh, 440px);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-hairline);
+    background: var(--canvas);
+}
+.sd-chart-toolbar {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    z-index: 3;
+    display: flex;
+    gap: 4px;
+}
+.sd-tf-btn {
+    font-family: var(--sd-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    border-radius: 4px;
+    padding: 3px 9px;
+    cursor: pointer;
+    transition: color var(--sd-motion) var(--sd-ease), border-color var(--sd-motion) var(--sd-ease);
+}
+.sd-tf-btn:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.sd-tf-btn.active { color: var(--accent); border-color: var(--accent); }
+.sd-chart-src { font-family: var(--sd-mono); font-size: 10px; color: var(--text-tertiary); align-self: center; margin-left: 6px; letter-spacing: .3px; text-transform: uppercase; }
+
+.sd-chart-legend {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    z-index: 3;
+    display: flex;
+    gap: 12px;
+    font-family: var(--sd-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+}
+.sd-leg { display: inline-flex; align-items: center; gap: 5px; }
+.sd-leg-mark { width: 14px; height: 0; border-top-width: 2px; border-top-style: dashed; }
+.sd-leg-mark.entry { border-color: var(--accent); }
+.sd-leg-mark.sl { border-color: var(--neg); }
+.sd-leg-mark.tg { border-color: var(--pos); border-top-style: dotted; }
+
+.sd-chart-empty {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+.sd-chart-empty svg { width: 28px; height: 28px; opacity: 0.4; }
+.sd-chart-container.is-empty .sd-chart-empty { display: flex; }
+.sd-chart-container.is-empty .sd-chart-toolbar,
+.sd-chart-container.is-empty .sd-chart-legend { display: none; }
+
+
+/* ─── TRADE SETUP ─────────────────────────────────────────────────── */
+
+.sd-overext {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+}
+.sd-overext svg { width: 14px; height: 14px; flex: 0 0 auto; }
+
+.sd-level {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.sd-level:last-child { border-bottom: none; }
+.sd-level-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+.sd-level-r {
+    font-family: var(--sd-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-align: right;
+    min-width: 30px;
+}
+.sd-level-value {
+    font-family: var(--sd-mono);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: right;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    min-width: 86px;
+}
+.sd-level-value.neg { color: var(--neg); }
+.sd-level-value.pos { color: var(--pos); }
+.sd-level-value.accent { color: var(--accent); }
+.sd-level-rr {
+    border-top: 1px solid var(--border-strong);
+    margin-top: 4px;
+    padding-top: 12px;
+}
+.sd-level-rr .sd-level-label { color: var(--text-primary); font-weight: 600; }
+
+
+/* ─── FACTOR STATS (compact KV) ───────────────────────────────────── */
+
+.sd-kv {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px 14px;
+}
+.sd-kv-label { font-size: 11.5px; color: var(--text-secondary); }
+.sd-kv-value {
+    font-family: var(--sd-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sd-kv-value.pos { color: var(--pos); }
+.sd-kv-value.neg { color: var(--neg); }
+.sd-kv-value.warn { color: var(--warn); }
+
+
+/* ─── SUMMARY / DRIVERS ───────────────────────────────────────────── */
+
+.sd-summary {
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: var(--text-secondary);
+}
+.sd-driver-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+.sd-driver {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--sd-mono);
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-hairline);
+    background: var(--surface-raised);
+    color: var(--text-secondary);
+}
+.sd-driver .sd-chip-dot { width: 5px; height: 5px; }
+.sd-driver.pos .sd-chip-dot { background: var(--pos); }
+.sd-driver.neg .sd-chip-dot { background: var(--neg); }
+.sd-driver-val { color: var(--text-primary); font-weight: 600; }
+
+
+/* ─── COLLAPSIBLE (fundamentals / earnings) ───────────────────────── */
+
+.sd-collapse-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--sd-motion) var(--sd-ease);
+}
+.sd-collapse-head h3 {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0;
+    flex: 1;
+}
+.sd-collapse-head svg { width: 14px; height: 14px; color: var(--text-tertiary); }
+.sd-collapse-chevron {
+    transition: transform var(--sd-motion) var(--sd-ease);
+}
+.sd-panel.open .sd-collapse-chevron { transform: rotate(180deg); }
+.sd-panel.open .sd-collapse-head { border-bottom-color: var(--border-hairline); }
+.sd-collapse-body { display: none; padding: 16px; }
+.sd-panel.open .sd-collapse-body { display: block; }
+
+.sd-health {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--sd-mono);
+    font-size: 11px;
+    font-weight: 600;
+}
+.sd-health .sd-chip-dot { width: 6px; height: 6px; }
+
+/* Fundamentals quick grid */
+.sd-fund-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.sd-fund-item {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-hairline);
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+.sd-fund-num {
+    font-family: var(--sd-mono);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.sd-fund-label {
+    font-size: 9.5px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 3px;
+}
+
+/* Quarterly / earnings table */
+.sd-fin-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.sd-fin-table th {
+    text-align: right;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border-hairline);
+    font-size: 9.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.sd-fin-table th:first-child, .sd-fin-table td:first-child { text-align: left; }
+.sd-fin-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border-hairline);
+    font-family: var(--sd-mono);
+    color: var(--text-primary);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.sd-fin-table tr:last-child td { border-bottom: none; }
+.sd-fin-table td.pos { color: var(--pos); }
+.sd-fin-table td.neg { color: var(--neg); }
+
+
+/* ─── NEWS TRAFFIC-LIGHT ──────────────────────────────────────────── */
+
+.sd-news-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border-hairline);
+    font-size: 12px;
+}
+.sd-news-item:last-child { border-bottom: none; }
+.sd-news-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    margin-top: 4px;
+    background: var(--text-tertiary);
+}
+.sd-news-dot.pos { background: var(--pos); }
+.sd-news-dot.neg { background: var(--neg); }
+.sd-news-dot.warn { background: var(--warn); }
+.sd-news-headline { color: var(--text-secondary); line-height: 1.4; }
+.sd-news-meta {
+    font-family: var(--sd-mono);
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.sd-empty {
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    padding: 4px 0;
+}
+
+
+/* ─── SKELETONS (not spinners) ────────────────────────────────────── */
+
+.sd-skel {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-raised);
+    border-radius: 4px;
+    color: transparent !important;
+}
+.sd-skel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 6%, transparent), transparent);
+    animation: sd-shimmer 1.2s var(--sd-ease) infinite;
+}
+@keyframes sd-shimmer { 100% { transform: translateX(100%); } }
+.sd-skel-line { height: 11px; margin: 7px 0; display: block; }
+.sd-skel-num { width: 60%; height: 40px; margin: 8px auto; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sd-skel::after { animation: none; }
+    .sd-gauge-fill { transition: none; }
+}
+
+
+/* ─── MOBILE (≤ 640px, tuned for 390px) ───────────────────────────── */
+
+@media (max-width: 640px) {
+    /* Single column: Score Hero → Trade Setup → Factor Stats stack in the
+       left cell; the right cell (radar, thesis, financials, news) follows.
+       The .sd-grid already collapses to 1fr at 980px, so the panels stack in
+       source order here. */
+    .sd-grid { gap: 12px; }
+
+    /* Header: symbol on top, price block left-aligned beneath it. */
+    .sd-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .sd-price-block { text-align: left; }
+    .sd-symbol { font-size: 20px; }
+    .sd-price { font-size: 20px; }
+
+    /* Chart: shorter, still fits its container (chart JS reads clientHeight). */
+    .sd-chart-container { height: clamp(240px, 40vh, 320px); }
+
+    /* Radar always single-column and centered on phones. */
+    .sd-radar-wrap { grid-template-columns: 1fr; gap: 12px; }
+    .sd-radar-box { max-width: 240px; }
+
+    .sd-panel-body { padding: 12px; }
+
+    /* Tables scroll horizontally rather than squashing columns. */
+    .sd-fin-table, .sd-radar-table { min-width: 320px; }
+    #sdQuarterly { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}

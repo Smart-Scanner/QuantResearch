@@ -1,0 +1,7 @@
+# Desktop mode dependencies (extends production requirements)
+# Install with: pip install -r requirements-desktop.txt
+
+-r requirements.txt
+
+# ── Desktop GUI ───────────────────────────────────────
+pywebview>=6.2.1

@@ -1,0 +1,17 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ff8c5a"/>
+            <stop offset="100%" stop-color="#ff6c37"/>
+        </linearGradient>
+    </defs>
+    <!-- Magnifying glass lens -->
+    <circle cx="26" cy="28" r="17" fill="none" stroke="url(#g)" stroke-width="4"/>
+    <!-- Handle -->
+    <path d="M 39 41 L 54 56" stroke="url(#g)" stroke-width="5.5" stroke-linecap="round"/>
+    <!-- Ascending chart bars inside the lens -->
+    <rect x="14" y="33" width="3.5" height="9"  rx="1" fill="url(#g)"/>
+    <rect x="19.5" y="29" width="3.5" height="13" rx="1" fill="url(#g)"/>
+    <rect x="25" y="24" width="3.5" height="18" rx="1" fill="url(#g)"/>
+    <rect x="30.5" y="18" width="3.5" height="24" rx="1" fill="url(#g)"/>
+</svg>

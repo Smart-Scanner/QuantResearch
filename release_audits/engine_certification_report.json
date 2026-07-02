@@ -1,0 +1,126 @@
+{
+  "environment": {
+    "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "cpu_count": 12,
+    "ram_total_gb": 23.3,
+    "ram_available_gb": 8.7,
+    "os": "Windows 11",
+    "python_version": "3.12.10",
+    "db_backend": "Isolated SQLite (:memory: / certification_audit.db)",
+    "timestamp": "2026-06-19T12:14:56.014368+05:30"
+  },
+  "results": {
+    "PT-1": {
+      "status": "PASS",
+      "grade": "PLATINUM",
+      "metrics": {
+        "Uniform": {
+          "tick_count": 5000,
+          "avg_ms": 0.0009,
+          "p95_ms": 0.0042,
+          "p99_ms": 0.0055,
+          "max_ms": 0.0586,
+          "grade": "PLATINUM"
+        },
+        "Concentrated": {
+          "tick_count": 5000,
+          "avg_ms": 0.0004,
+          "p95_ms": 0.0004,
+          "p99_ms": 0.0004,
+          "max_ms": 0.0052,
+          "grade": "PLATINUM"
+        }
+      },
+      "notes": ""
+    },
+    "PT-2": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "dropped_events": 0,
+        "write_failures": 0,
+        "peak_queue_depth": 5000,
+        "levels_tested": [
+          100,
+          1000,
+          5000
+        ]
+      },
+      "notes": ""
+    },
+    "PT-9": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "tick_count": 1000000,
+        "elapsed_sec": 8.2,
+        "ticks_per_sec": 121976,
+        "memory_growth_kb": 6.4
+      },
+      "notes": ""
+    },
+    "PT-3": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "race_accepted": 1,
+        "distributed_accepted": 1,
+        "post_restart_accepted": true
+      },
+      "notes": ""
+    },
+    "PT-4": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "expected_pending": 50,
+        "actual_pending": 50,
+        "expected_positions": 50,
+        "actual_positions": 50,
+        "restarts": 3
+      },
+      "notes": ""
+    },
+    "PT-5": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {},
+      "notes": ""
+    },
+    "PT-6": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {},
+      "notes": ""
+    },
+    "PT-7": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "pending_db": 10,
+        "pending_memory": 10,
+        "pending_delta": 0,
+        "position_db": 5,
+        "position_memory": 5,
+        "position_delta": 0,
+        "pending_symbol_diff": [],
+        "position_symbol_diff": [],
+        "healthy": true
+      },
+      "notes": ""
+    },
+    "PT-8": {
+      "status": "PASS",
+      "grade": null,
+      "metrics": {
+        "runs": 3,
+        "outcome_delta": 0,
+        "order_count_delta": 0,
+        "position_count_delta": 0
+      },
+      "notes": ""
+    }
+  },
+  "findings": [],
+  "verdict": "APPROVED"
+}

@@ -1,0 +1,2759 @@
+{% extends "_app_base.html" %}
+{% set active_page = "portfolio" %}
+{% block title %}Portfolio Center{% endblock %}
+{% block content %}
+
+<!-- ═══ PORTFOLIO CENTER — MONITOR MODE ════════════════════════════ -->
+<div class="v3-page-header">
+    <div class="v3-page-title">Portfolio Center</div>
+    <div class="v3-page-subtitle" id="modeSubtitle">Monitor Mode — Real-time portfolio health, risk, and exposure</div>
+</div>
+
+<!-- Mode Tabs -->
+<div class="poc-mode-bar" id="pocModeBar">
+    <button class="poc-mode-btn active" data-mode="monitor" onclick="setMode('monitor')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Monitor
+    </button>
+    <button class="poc-mode-btn" data-mode="manage" onclick="setMode('manage')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Manage
+    </button>
+    <button class="poc-mode-btn" data-mode="analyze" onclick="setMode('analyze')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Analyze
+    </button>
+    <button class="poc-mode-btn" data-mode="review" onclick="setMode('review')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Review
+    </button>
+    <div class="poc-portfolio-selector">
+        <select id="portfolioSelect" onchange="loadMonitor()">
+            <option value="">Loading portfolios...</option>
+        </select>
+    </div>
+</div>
+
+<!-- Loading (content-shaped skeletons, not spinners) -->
+<div id="pocLoading" class="poc-loading" aria-busy="true" aria-label="Loading portfolio data">
+    <div class="poc-skel-grid">
+        <div class="qr-skel poc-skel-kpi"></div>
+        <div class="qr-skel poc-skel-kpi"></div>
+        <div class="qr-skel poc-skel-kpi"></div>
+        <div class="qr-skel poc-skel-kpi"></div>
+    </div>
+    <div class="poc-skel-dual">
+        <div class="qr-skel poc-skel-panel"></div>
+        <div class="qr-skel poc-skel-panel"></div>
+    </div>
+    <div class="qr-skel poc-skel-table"></div>
+</div>
+
+<!-- Monitor Mode Content -->
+<div id="monitorContent" style="display:none">
+
+    <!-- Summary Cards Row -->
+    <div class="poc-summary-grid" id="summaryCards"></div>
+
+    <!-- Risk + Exposure Row -->
+    <div class="poc-dual-grid">
+        <div class="poc-panel" id="riskPanel">
+            <div class="poc-panel-header">
+                <h3>Risk Summary</h3>
+                <span class="poc-panel-badge" id="riskBadge">—</span>
+            </div>
+            <div class="poc-panel-body" id="riskBody"></div>
+        </div>
+        <div class="poc-panel" id="exposurePanel">
+            <div class="poc-panel-header">
+                <h3>Exposure</h3>
+                <span class="poc-panel-badge" id="exposureBadge">—</span>
+            </div>
+            <div class="poc-panel-body" id="exposureBody"></div>
+        </div>
+    </div>
+
+    <!-- Allocation Charts Row -->
+    <div class="poc-dual-grid">
+        <div class="poc-panel">
+            <div class="poc-panel-header"><h3>Sector Allocation</h3></div>
+            <div class="poc-panel-body poc-chart-wrap">
+                <canvas id="sectorChart" height="220"></canvas>
+                <div id="sectorEmpty" class="poc-empty-state" style="display:none; padding:20px 0;"><p>No allocation data</p></div>
+            </div>
+        </div>
+        <div class="poc-panel">
+            <div class="poc-panel-header"><h3>Strategy Allocation</h3></div>
+            <div class="poc-panel-body poc-chart-wrap">
+                <canvas id="strategyChart" height="220"></canvas>
+                <div id="strategyEmpty" class="poc-empty-state" style="display:none; padding:20px 0;"><p>No allocation data</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Positions Table -->
+    <div class="poc-panel poc-full-width">
+        <div class="poc-panel-header">
+            <h3>Open Positions</h3>
+            <span class="poc-panel-count" id="posCount">0 positions</span>
+            <button class="poc-add-pos-btn" id="addPosToggle" onclick="toggleAddPositionForm()" title="Add Position">+ Add Position</button>
+        </div>
+        <!-- D1-C: Add Position Form (hidden by default) -->
+        <div id="addPosForm" class="poc-add-form" style="display:none">
+            <div class="poc-add-form-grid">
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Symbol <span style="color:var(--neg)">*</span></label>
+                    <input class="poc-add-input" id="addPosSymbol" type="text" placeholder="e.g. RELIANCE, M&amp;M" autocomplete="off" oninput="onAddPosSymbolInput(this)">
+                    <div class="poc-add-suggest" id="addPosSuggest"></div>
+                </div>
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Quantity <span style="color:var(--neg)">*</span></label>
+                    <input class="poc-add-input" id="addPosQty" type="number" min="1" value="1">
+                </div>
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Buy Price <span style="color:var(--neg)">*</span></label>
+                    <input class="poc-add-input" id="addPosPrice" type="number" step="0.01" placeholder="Entry price">
+                </div>
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Buy Date</label>
+                    <input class="poc-add-input" id="addPosDate" type="date">
+                </div>
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Stop Loss</label>
+                    <input class="poc-add-input" id="addPosSL" type="number" step="0.01" placeholder="Auto from scan">
+                </div>
+                <div class="poc-add-field">
+                    <label class="poc-add-label">Target</label>
+                    <input class="poc-add-input" id="addPosTarget" type="number" step="0.01" placeholder="Auto from scan">
+                </div>
+            </div>
+            <div class="poc-add-field" style="margin-top:6px">
+                <label class="poc-add-label">Notes</label>
+                <textarea class="poc-add-input" id="addPosNotes" rows="2" placeholder="Trade rationale..."></textarea>
+            </div>
+            <div id="addPosError" style="color:var(--neg);font-size:11px;min-height:16px;margin-top:4px"></div>
+            <div class="poc-add-actions">
+                <button class="poc-add-cancel" onclick="toggleAddPositionForm()">Cancel</button>
+                <button class="poc-add-submit" id="addPosSubmit" onclick="submitAddPosition()">Add Position</button>
+            </div>
+        </div>
+        <div class="poc-table-wrap">
+            <table class="poc-table" id="positionsTable">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Strategy</th>
+                        <th>Side</th>
+                        <th>Entry</th>
+                        <th>Qty</th>
+                        <th>Stop Loss</th>
+                        <th>Target 1</th>
+                        <th>Risk %</th>
+                        <th>Size %</th>
+                        <th>Source</th>
+                        <th>Advice</th>
+                        <th>Age</th>
+                    </tr>
+                </thead>
+                <tbody id="positionsBody"></tbody>
+            </table>
+        </div>
+        <div class="poc-empty-state" id="posEmpty" style="display:none">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9 10h.01M15 10h.01M9.5 15.5c.83.67 1.94 1 3.12.92 1.01-.07 1.96-.53 2.68-1.22"/></svg>
+            <p>No open positions</p>
+            <span>Click "+ Add Position" above or create from the Symbol Workspace.</span>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MANAGE MODE CONTENT ═══════════════════════════════════════ -->
+<div id="manageContent" style="display:none">
+
+    <!-- Position Selector -->
+    <div class="mgr-position-selector">
+        <div class="mgr-selector-label">Select Position to Manage</div>
+        <select id="managePositionSelect" onchange="loadManagePosition()">
+            <option value="">— Select a position —</option>
+        </select>
+    </div>
+
+    <!-- No Position Selected State -->
+    <div id="manageEmpty" class="poc-empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <p>Select a position to manage</p>
+        <span>Choose an open position from the dropdown above to update stops, targets, scale, or exit.</span>
+    </div>
+
+    <!-- Position Detail Header -->
+    <div id="manageHeader" class="mgr-pos-header" style="display:none">
+        <div class="mgr-pos-symbol" id="mgrSymbol">—</div>
+        <div class="mgr-pos-meta">
+            <span id="mgrSide" class="tag">—</span>
+            <span id="mgrStrategy" class="tag">—</span>
+            <span class="mgr-pos-detail">Entry: <strong id="mgrEntry">—</strong></span>
+            <span class="mgr-pos-detail">Qty: <strong id="mgrQty">—</strong></span>
+            <span class="mgr-pos-detail">Status: <strong id="mgrStatus">—</strong></span>
+        </div>
+    </div>
+
+    <!-- Management Panels (4 sections) -->
+    <div id="managePanels" style="display:none">
+
+        <!-- Section A: Stop Management -->
+        <div class="poc-dual-grid">
+            <div class="poc-panel mgr-section">
+                <div class="poc-panel-header">
+                    <h3><svg class="poc-h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Stop Management</h3>
+                    <span class="poc-panel-badge warn" id="stopBadge">—</span>
+                </div>
+                <div class="poc-panel-body">
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Current Stop Loss</span>
+                        <span class="mgr-current-value" id="currentStopValue" style="color:var(--neg)">—</span>
+                    </div>
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Risk at Stop</span>
+                        <span class="mgr-current-value" id="currentStopRisk">—</span>
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>New Stop Loss Price</label>
+                        <input type="number" id="newStopInput" step="0.05" placeholder="Enter new stop price">
+                        <div class="mgr-input-preview" id="stopPreview"></div>
+                    </div>
+                    <button class="mgr-action-btn mgr-btn-danger" id="updateStopBtn" onclick="executeUpdateStop()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        Update Stop Loss
+                    </button>
+                </div>
+            </div>
+
+            <!-- Section B: Target Management -->
+            <div class="poc-panel mgr-section">
+                <div class="poc-panel-header">
+                    <h3><svg class="poc-h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Target Management</h3>
+                    <span class="poc-panel-badge safe" id="targetBadge">—</span>
+                </div>
+                <div class="poc-panel-body">
+                    <div class="mgr-targets-display">
+                        <div class="mgr-target-row">
+                            <div class="mgr-target-col">
+                                <span class="mgr-target-label">Target 1</span>
+                                <span class="mgr-target-val" id="currentT1">—</span>
+                            </div>
+                            <div class="mgr-target-col">
+                                <span class="mgr-target-label">Target 2</span>
+                                <span class="mgr-target-val" id="currentT2">—</span>
+                            </div>
+                            <div class="mgr-target-col">
+                                <span class="mgr-target-label">Target 3</span>
+                                <span class="mgr-target-val" id="currentT3">—</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>New Targets</label>
+                        <div class="mgr-target-inputs">
+                            <input type="number" id="newT1" step="0.05" placeholder="T1">
+                            <input type="number" id="newT2" step="0.05" placeholder="T2">
+                            <input type="number" id="newT3" step="0.05" placeholder="T3">
+                        </div>
+                    </div>
+                    <button class="mgr-action-btn mgr-btn-success" id="updateTargetBtn" onclick="executeUpdateTargets()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        Update Targets
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="poc-dual-grid">
+            <!-- Section C: Position Scaling -->
+            <div class="poc-panel mgr-section">
+                <div class="poc-panel-header">
+                    <h3><svg class="poc-h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>Position Scaling</h3>
+                </div>
+                <div class="poc-panel-body">
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Current Quantity</span>
+                        <span class="mgr-current-value" id="scaleCurrentQty">—</span>
+                    </div>
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Entry Price</span>
+                        <span class="mgr-current-value" id="scaleEntryPrice">—</span>
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>Add Quantity</label>
+                        <input type="number" id="scaleQtyInput" min="1" step="1" placeholder="Shares to add">
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>Scale-In Price</label>
+                        <input type="number" id="scalePriceInput" step="0.05" placeholder="Current market price">
+                        <div class="mgr-input-preview" id="scalePreview"></div>
+                    </div>
+                    <button class="mgr-action-btn mgr-btn-blue" id="scaleBtn" onclick="executeScale()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Scale Position
+                    </button>
+                </div>
+            </div>
+
+            <!-- Section D: Position Exit -->
+            <div class="poc-panel mgr-section">
+                <div class="poc-panel-header">
+                    <h3><svg class="poc-h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Position Exit</h3>
+                </div>
+                <div class="poc-panel-body">
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Remaining Qty</span>
+                        <span class="mgr-current-value" id="exitCurrentQty">—</span>
+                    </div>
+                    <div class="mgr-current-row">
+                        <span class="mgr-current-label">Realized P&L</span>
+                        <span class="mgr-current-value" id="exitRealizedPnl">—</span>
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>Exit Price</label>
+                        <input type="number" id="exitPriceInput" step="0.05" placeholder="Exit price">
+                    </div>
+                    <div class="mgr-exit-presets">
+                        <button class="mgr-preset-btn" onclick="setExitPercent(25)">25%</button>
+                        <button class="mgr-preset-btn" onclick="setExitPercent(50)">50%</button>
+                        <button class="mgr-preset-btn" onclick="setExitPercent(75)">75%</button>
+                        <button class="mgr-preset-btn mgr-preset-full" onclick="setExitPercent(100)">100%</button>
+                    </div>
+                    <div class="mgr-input-group">
+                        <label>Custom Quantity</label>
+                        <input type="number" id="exitQtyInput" min="1" step="1" placeholder="Shares to exit">
+                        <div class="mgr-input-preview" id="exitPreview"></div>
+                    </div>
+                    <button class="mgr-action-btn mgr-btn-danger" id="exitBtn" onclick="executeExit()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        Execute Exit
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution History -->
+        <div class="poc-panel poc-full-width">
+            <div class="poc-panel-header">
+                <h3><svg class="poc-h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>Execution History</h3>
+                <span class="poc-panel-count" id="execCount">0 executions</span>
+            </div>
+            <div class="poc-table-wrap">
+                <table class="poc-table" id="execTable">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="execBody"></tbody>
+                </table>
+            </div>
+            <div class="poc-empty-state" id="execEmpty" style="display:none">
+                <p>No executions yet</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ ANALYZE MODE CONTENT ══════════════════════════════════════ -->
+<div id="analyzeContent" style="display:none">
+
+    <!-- Empty State (shown when 0 closed trades) -->
+    <div id="analyzeEmpty" class="poc-panel poc-full-width" style="display:none">
+        <div class="poc-panel-body" style="text-align:center; padding:60px 20px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom:16px;">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <p style="font-size:16px; font-weight:700; color:var(--text-secondary); margin:0 0 8px;">No closed trades yet.</p>
+            <span style="font-size:13px; color:var(--text-muted);">Close trades from Manage Mode to unlock performance analytics.</span>
+        </div>
+    </div>
+
+    <!-- Analytics Panels (shown when closed trades > 0) -->
+    <div id="analyzeData" style="display:none">
+
+        <!-- Summary Cards -->
+        <div class="ana-summary-grid" id="analyzeCards"></div>
+
+        <!-- Equity Curve + Drawdown -->
+        <div class="poc-dual-grid">
+            <div class="poc-panel">
+                <div class="poc-panel-header"><h3>Equity Curve</h3></div>
+                <div class="poc-panel-body poc-chart-wrap">
+                    <canvas id="equityCurveCanvas" height="240"></canvas>
+                </div>
+            </div>
+            <div class="poc-panel">
+                <div class="poc-panel-header"><h3>Drawdown</h3></div>
+                <div class="poc-panel-body poc-chart-wrap">
+                    <canvas id="drawdownCanvas" height="240"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Statistics + Streak Analysis -->
+        <div class="poc-dual-grid">
+            <div class="poc-panel">
+                <div class="poc-panel-header"><h3>Trade Statistics</h3></div>
+                <div class="poc-panel-body" id="tradeStatsBody"></div>
+            </div>
+            <div class="poc-panel">
+                <div class="poc-panel-header"><h3>Streak Analysis</h3></div>
+                <div class="poc-panel-body" id="streakBody"></div>
+            </div>
+        </div>
+
+        <!-- Strategy Attribution + Closed Trades Table -->
+        <div class="poc-dual-grid">
+            <div class="poc-panel">
+                <div class="poc-panel-header"><h3>Strategy Attribution</h3></div>
+                <div class="poc-panel-body poc-chart-wrap">
+                    <canvas id="strategyBarCanvas" height="240"></canvas>
+                </div>
+            </div>
+            <div class="poc-panel">
+                <div class="poc-panel-header">
+                    <h3>Closed Trades</h3>
+                    <span class="poc-panel-count" id="closedTradeCount">0 trades</span>
+                </div>
+                <div class="poc-table-wrap">
+                    <table class="poc-table" id="closedTradesTable">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Strategy</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>P&L</th>
+                                <th>R-Multiple</th>
+                                <th>Days</th>
+                            </tr>
+                        </thead>
+                        <tbody id="closedTradesBody"></tbody>
+                    </table>
+                </div>
+                <div class="poc-empty-state" id="closedTradesEmpty" style="display:none">
+                    <p>No closed trades</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ REVIEW MODE CONTENT ═══════════════════════════════════════ -->
+<div id="reviewContent" style="display:none">
+
+    <!-- Empty State (shown when 0 closed trades) -->
+    <div id="reviewEmpty" class="poc-panel poc-full-width" style="display:none">
+        <div class="poc-panel-body" style="text-align:center; padding:60px 20px;">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="margin-bottom:16px;">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p style="font-size:16px; font-weight:700; color:var(--text-secondary); margin:0 0 8px;">No closed trades to review.</p>
+            <span style="font-size:13px; color:var(--text-muted);">Close trades from Manage Mode and then return here to reflect on your trading.</span>
+        </div>
+    </div>
+
+    <!-- Review Layout: Sidebar + Dashboard -->
+    <div id="reviewLayout" class="rev-layout" style="display:none">
+
+        <!-- Sidebar: Closed Trades List -->
+        <div class="rev-sidebar">
+            <div class="rev-sidebar-header">
+                <h3>Closed Trades</h3>
+                <span class="rev-trade-count" id="revTradeCount">0</span>
+            </div>
+            <div class="rev-sidebar-stats" id="revSidebarStats"></div>
+            <div class="rev-trade-list" id="revTradeList"></div>
+        </div>
+
+        <!-- Dashboard: Review Canvas -->
+        <div class="rev-dashboard" id="revDashboard">
+
+            <!-- Placeholder when no trade selected -->
+            <div class="rev-placeholder" id="revPlaceholder">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <p>Select a trade from the sidebar to begin your review.</p>
+            </div>
+
+            <!-- Active Review -->
+            <div id="revActive" style="display:none">
+
+                <!-- Trade Header -->
+                <div class="rev-trade-header" id="revTradeHeader"></div>
+
+                <!-- Thesis vs Reality -->
+                <div class="poc-panel rev-section">
+                    <div class="poc-panel-header"><h3>Thesis vs Reality</h3></div>
+                    <div class="poc-panel-body rev-comparison" id="revComparison"></div>
+                </div>
+
+                <!-- Timeline + Journal -->
+                <div class="poc-panel rev-section">
+                    <div class="poc-panel-header"><h3>Event Timeline</h3></div>
+                    <div class="poc-panel-body rev-timeline" id="revTimeline"></div>
+                </div>
+
+                <!-- Structured Reflection -->
+                <div class="poc-panel rev-section">
+                    <div class="poc-panel-header">
+                        <h3>Post-Trade Reflection</h3>
+                        <span class="rev-status-badge" id="revStatusBadge">Open</span>
+                    </div>
+                    <div class="poc-panel-body">
+                        <div class="rev-reflection-grid">
+                            <div class="rev-field">
+                                <label for="revWell">What went well?</label>
+                                <textarea id="revWell" rows="3" placeholder="Execution, timing, thesis accuracy..."></textarea>
+                            </div>
+                            <div class="rev-field">
+                                <label for="revWrong">What went wrong?</label>
+                                <textarea id="revWrong" rows="3" placeholder="Mistakes, missed signals, emotional decisions..."></textarea>
+                            </div>
+                            <div class="rev-field">
+                                <label for="revLesson">Lesson learned</label>
+                                <textarea id="revLesson" rows="3" placeholder="Key takeaway for future trades..."></textarea>
+                            </div>
+                            <div class="rev-field">
+                                <label for="revAction">Action item</label>
+                                <textarea id="revAction" rows="2" placeholder="Concrete change to implement..."></textarea>
+                            </div>
+                        </div>
+                        <div class="rev-actions">
+                            <button class="mgr-action-btn mgr-btn-blue" id="revSaveDraft" onclick="saveReviewDraft()">Save Draft</button>
+                            <button class="mgr-action-btn mgr-btn-success" id="revComplete" onclick="completeReview()">Mark Completed</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   PORTFOLIO CENTER — institutional restyle
+   Tokens only. Hairline borders, no shadows/glow/lift. Single azure
+   accent (var(--accent)); semantic var(--pos)/--neg)/--warn) on data.
+   Numbers are the hero: JetBrains Mono, tabular. 130ms motion.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ═══ MODE BAR ════════════════════════════════════════════════ */
+.poc-mode-bar {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    padding: 8px 10px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.poc-mode-btn {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 14px; font-size: 12px; font-weight: 500;
+    border: 1px solid transparent; border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary); cursor: pointer;
+    transition: color var(--transition), background var(--transition), border-color var(--transition);
+    font-family: inherit; letter-spacing: 0;
+}
+.poc-mode-btn svg { width: 14px; height: 14px; opacity: 0.8; }
+.poc-mode-btn:hover:not(:disabled) { color: var(--text-primary); background: var(--surface-hover); }
+.poc-mode-btn.active {
+    background: var(--accent-blue-soft); color: var(--accent);
+    border-color: var(--accent-blue-soft); font-weight: 600;
+}
+.poc-mode-btn.active svg { opacity: 1; }
+.poc-mode-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.poc-portfolio-selector { margin-left: auto; }
+.poc-portfolio-selector select {
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    padding: 7px 12px; font-size: 12px; font-family: inherit;
+    font-weight: 500; cursor: pointer; min-width: 180px;
+    transition: border-color var(--transition);
+}
+.poc-portfolio-selector select:focus { outline: none; border-color: var(--accent); }
+
+/* ═══ LOADING (content-shaped skeletons, not spinners) ════════ */
+.poc-loading { padding: 4px 0 40px; }
+.poc-skel-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px; margin-bottom: 16px;
+}
+.poc-skel-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.poc-skel-kpi { height: 92px; border-radius: var(--radius); }
+.poc-skel-panel { height: 220px; border-radius: var(--radius); }
+.poc-skel-table { height: 260px; border-radius: var(--radius); }
+@media (max-width: 768px) { .poc-skel-dual { grid-template-columns: 1fr; } }
+
+/* ═══ SUMMARY KPIs (the number is the hero) ═══════════════════ */
+.poc-summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px; margin-bottom: 16px;
+}
+.poc-summary-card {
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); padding: 16px 18px;
+    transition: border-color var(--transition), background var(--transition);
+}
+.poc-summary-card:hover { border-color: var(--border-strong); background: var(--bg-card-hover); }
+.poc-summary-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 8px;
+}
+.poc-summary-value {
+    font-size: 26px; font-weight: 600; color: var(--text-primary);
+    font-family: 'JetBrains Mono', 'Inter', monospace; letter-spacing: -0.4px;
+    line-height: 1.05; font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.poc-summary-sub {
+    font-size: 11px; color: var(--text-muted); margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+/* Semantic color lives on the value only (data, not chrome). */
+.poc-summary-card.accent-green .poc-summary-value { color: var(--pos); }
+.poc-summary-card.accent-red .poc-summary-value { color: var(--neg); }
+.poc-summary-card.accent-blue .poc-summary-value { color: var(--text-primary); }
+.poc-summary-card.accent-cyan .poc-summary-value { color: var(--text-primary); }
+
+/* ═══ PANELS (hairline, not cards) ════════════════════════════ */
+.poc-dual-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.poc-panel {
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); overflow: hidden;
+}
+.poc-panel.poc-full-width { margin-bottom: 16px; }
+.poc-panel-header {
+    display: flex; align-items: center; gap: 10px; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-hairline);
+}
+.poc-panel-header h3 {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-secondary); margin: 0;
+}
+.poc-h-icon { width: 14px; height: 14px; color: var(--text-tertiary); flex-shrink: 0; }
+.poc-panel-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: var(--radius-xs); letter-spacing: 0.3px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.poc-panel-badge.safe { color: var(--pos); background: var(--success-soft); border: 1px solid var(--success-border); }
+.poc-panel-badge.warn { color: var(--warn); background: var(--warning-soft); border: 1px solid var(--warning-border); }
+.poc-panel-badge.danger { color: var(--neg); background: var(--danger-soft); border: 1px solid var(--danger-border); }
+.poc-panel-body { padding: 16px; }
+.poc-panel-count {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.poc-chart-wrap { display: flex; align-items: center; justify-content: center; min-height: 220px; padding: 4px; }
+
+/* D1-C: Add Position Button & Form */
+.poc-add-pos-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; font-size: 12px; font-weight: 500;
+    background: transparent; color: var(--accent);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    cursor: pointer; transition: border-color var(--transition), background var(--transition);
+    font-family: inherit; letter-spacing: 0; margin-left: auto;
+}
+.poc-add-pos-btn:hover { background: var(--accent-blue-soft); border-color: var(--accent); }
+.poc-add-form {
+    padding: 14px 16px; border-bottom: 1px solid var(--border-hairline);
+    background: var(--bg-tertiary);
+}
+.poc-add-form-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+}
+.poc-add-field { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.poc-add-label {
+    font-size: 10px; font-weight: 600; color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.6px;
+}
+.poc-add-input {
+    padding: 7px 10px; background: var(--bg-card);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-xs);
+    color: var(--text-primary); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace; transition: border-color var(--transition);
+    width: 100%; box-sizing: border-box; font-variant-numeric: tabular-nums;
+}
+.poc-add-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-blue-soft); }
+.poc-add-suggest {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 99;
+    background: var(--surface-raised); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm); max-height: 200px; overflow-y: auto;
+    box-shadow: var(--shadow-md);
+}
+.poc-suggest-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; cursor: pointer; transition: background var(--transition);
+    font-size: 12px; color: var(--text-secondary);
+}
+.poc-suggest-item:hover { background: var(--surface-hover); }
+.poc-suggest-sym { font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+.poc-suggest-score { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+.poc-add-actions {
+    display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;
+}
+.poc-add-cancel {
+    padding: 7px 16px; background: none; border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px;
+    font-weight: 500; cursor: pointer; font-family: inherit;
+    transition: color var(--transition), border-color var(--transition);
+}
+.poc-add-cancel:hover { color: var(--text-primary); border-color: var(--border-strong); }
+.poc-add-submit {
+    padding: 7px 18px; background: var(--accent);
+    border: 1px solid var(--accent); border-radius: var(--radius-sm);
+    color: #fff; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit; transition: background var(--transition);
+}
+.poc-add-submit:hover:not(:disabled) { background: var(--accent-hover); }
+.poc-add-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ═══ RISK METER ══════════════════════════════════════════════ */
+.poc-risk-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border-hairline);
+}
+.poc-risk-row:last-child { border-bottom: none; }
+.poc-risk-label { font-size: 13px; color: var(--text-secondary); }
+.poc-risk-value {
+    font-size: 13px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-primary); font-variant-numeric: tabular-nums;
+}
+/* Risk budget meter — remaining = 100% − used (no contradiction) */
+.poc-risk-budget { width: 100%; margin-bottom: 4px; }
+.poc-risk-budget-top {
+    display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
+}
+.poc-risk-budget-caption {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+}
+.poc-risk-budget-num {
+    font-size: 22px; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.4px; font-variant-numeric: tabular-nums; line-height: 1;
+}
+.poc-risk-bar-wrap { width: 100%; margin-top: 12px; }
+.poc-risk-bar-bg {
+    height: 6px; background: var(--bg-elevated); border-radius: var(--radius-full);
+    overflow: hidden; position: relative;
+}
+.poc-risk-bar-fill {
+    height: 100%; border-radius: var(--radius-full); transition: width var(--transition-slow);
+}
+.poc-risk-bar-label {
+    display: flex; justify-content: space-between; margin-top: 6px;
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+
+/* ═══ EXPOSURE BARS ═══════════════════════════════════════════ */
+.poc-exp-row { margin-bottom: 16px; }
+.poc-exp-header {
+    display: flex; justify-content: space-between; margin-bottom: 4px;
+    font-size: 11px; font-weight: 500;
+}
+.poc-exp-label { color: var(--text-secondary); }
+.poc-exp-value { font-family: 'JetBrains Mono', monospace; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* ═══ POSITIONS TABLE (dense, hairline, tabular) ══════════════ */
+.poc-table-wrap { overflow-x: auto; }
+.poc-table { width: 100%; border-collapse: collapse; }
+.poc-table thead th {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+    padding: 10px 14px; text-align: left;
+    background: var(--surface); border-bottom: 1px solid var(--border-hairline);
+    white-space: nowrap; position: sticky; top: 0; z-index: 1;
+}
+.poc-table tbody tr {
+    border-bottom: 1px solid var(--border-hairline);
+    transition: background var(--transition); cursor: pointer;
+}
+.poc-table tbody tr:last-child { border-bottom: none; }
+.poc-table tbody tr:hover { background: var(--surface-hover); }
+.poc-table td {
+    padding: 10px 14px; font-size: 13px; color: var(--text-secondary);
+    white-space: nowrap; line-height: 1.4;
+}
+.poc-table .sym-cell { font-weight: 600; color: var(--text-primary); }
+.poc-table .mono {
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.poc-table .tag {
+    display: inline-block;
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.3px; padding: 2px 7px; border-radius: var(--radius-xs);
+    background: var(--bg-elevated); color: var(--text-secondary);
+}
+/* Strategy tags: neutral chrome by default; accent for the primary strategy only */
+.poc-table .tag-swing { color: var(--accent); background: var(--accent-blue-soft); }
+.poc-table .tag-momentum { color: var(--accent); background: var(--accent-blue-soft); }
+.poc-table .tag-ai_hc { color: var(--warn); background: var(--warning-soft); }
+.poc-table .tag-manual { color: var(--text-secondary); background: var(--bg-elevated); }
+.poc-table .tag-custom { color: var(--accent-purple); background: var(--accent-purple-soft); }
+/* Side + source: semantic color on the data token */
+.poc-table .tag-long { color: var(--pos); font-weight: 600; }
+.poc-table .tag-short { color: var(--neg); font-weight: 600; }
+.poc-table .src-ai { color: var(--warn); }
+.poc-table .src-manual { color: var(--text-muted); }
+.poc-table .src-broker { color: var(--accent); }
+
+/* ═══ ON-DEMAND ADVICE (verdict badge + reason chips) ═════════ */
+.poc-advice-wrap { display: flex; flex-direction: column; gap: 5px; min-width: 150px; white-space: normal; }
+.poc-verdict-badge {
+    display: inline-flex; align-items: center; align-self: flex-start;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.3px; padding: 2px 8px; border-radius: var(--radius-xs);
+    border: 1px solid transparent;
+}
+.poc-verdict-badge.v-buy { color: var(--accent); background: var(--accent-blue-soft); border-color: var(--accent-blue-soft); }
+.poc-verdict-badge.v-hold { color: var(--text-secondary); background: var(--bg-elevated); border-color: var(--border-hairline); }
+.poc-verdict-badge.v-sell { color: var(--neg); background: var(--danger-soft); border-color: var(--danger-border); }
+.poc-verdict-badge.v-partial_book { color: var(--warn); background: var(--warning-soft); border-color: var(--warning-border); }
+.poc-verdict-badge.v-loading { color: var(--text-muted); background: var(--bg-elevated); border-color: var(--border-hairline); }
+.poc-reason-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.poc-reason-chip {
+    font-size: 11px; font-weight: 400; padding: 1px 7px; border-radius: var(--radius-xs);
+    color: var(--text-muted); background: var(--bg-elevated);
+    border: 1px solid var(--border-hairline);
+    font-family: 'Inter', sans-serif; letter-spacing: 0;
+}
+.poc-advice-flag {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--warn); align-self: flex-start;
+}
+
+/* ═══ EMPTY STATE ═════════════════════════════════════════════ */
+.poc-empty-state {
+    text-align: center; padding: 40px 20px; color: var(--text-muted);
+}
+.poc-empty-state svg { color: var(--text-tertiary); }
+.poc-empty-state p { font-size: 14px; font-weight: 500; margin: 12px 0 4px; color: var(--text-secondary); }
+.poc-empty-state span { font-size: 13px; }
+
+/* ═══ RESPONSIVE ══════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .poc-dual-grid { grid-template-columns: 1fr; }
+    .poc-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .poc-mode-bar { gap: 4px; }
+    .poc-mode-btn { padding: 6px 10px; }
+    /* Portfolio selector wraps to its own full-width row so mode buttons stay tappable */
+    .poc-portfolio-selector { margin-left: 0; width: 100%; }
+    .poc-portfolio-selector select { width: 100%; min-width: 0; }
+    /* Add-position form: fields stack so labels + inputs stay legible at 390px */
+    .poc-add-form-grid { grid-template-columns: 1fr; }
+    .poc-add-actions { flex-direction: column-reverse; }
+    .poc-add-actions button { width: 100%; }
+    .poc-add-pos-btn { margin-left: 0; }
+
+    /* Mobile Table-to-Cards */
+    .poc-table thead { display: none; }
+    .poc-table, .poc-table tbody, .poc-table tr, .poc-table td { display: block; width: 100%; }
+    .poc-table tr { padding: 12px; margin-bottom: 12px; background: var(--surface); border: 1px solid var(--border-hairline); border-radius: var(--radius-sm); }
+    .poc-table td { padding: 6px 0; display: flex; justify-content: space-between; align-items: center; border: none; white-space: normal; text-align: right; }
+    .poc-table td::before { content: attr(data-label); font-size: 10px; text-transform: uppercase; color: var(--text-tertiary); font-weight: 600; text-align: left; margin-right: 10px; letter-spacing: 0.6px; }
+    /* Advice cell: badge + chips align left inside the card row for readability */
+    .poc-table td.poc-advice-cell { flex-direction: column; align-items: flex-end; }
+    .poc-table-wrap { overflow: visible; }
+    .poc-table thead th { position: static; }
+}
+@media (max-width: 480px) {
+    .poc-summary-grid { grid-template-columns: 1fr; }
+    .poc-panel-header { flex-wrap: wrap; }
+}
+/* ═══ MANAGE MODE ═════════════════════════════════════════════ */
+.mgr-position-selector {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 12px 16px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.mgr-selector-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+}
+.mgr-position-selector select {
+    flex: 1; min-width: 220px;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    padding: 9px 12px; font-size: 13px; font-family: inherit;
+    font-weight: 500; cursor: pointer; transition: border-color var(--transition);
+}
+.mgr-position-selector select:focus { outline: none; border-color: var(--accent); }
+.mgr-pos-header {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px; margin-bottom: 16px;
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.mgr-pos-symbol {
+    font-size: 20px; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.3px;
+}
+.mgr-pos-meta {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.mgr-pos-detail {
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.mgr-pos-detail strong { color: var(--text-primary); font-weight: 500; }
+.mgr-section { transition: border-color var(--transition); }
+.mgr-section:hover { border-color: var(--border-strong); }
+.mgr-current-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 0; border-bottom: 1px solid var(--border-hairline);
+}
+.mgr-current-row:last-of-type { border-bottom: none; }
+.mgr-current-label { font-size: 13px; color: var(--text-secondary); }
+.mgr-current-value {
+    font-size: 14px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+.mgr-input-group {
+    margin-top: 14px;
+}
+.mgr-input-group label {
+    display: block; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-tertiary); margin-bottom: 6px;
+}
+.mgr-input-group input {
+    width: 100%; padding: 9px 12px; font-size: 14px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    transition: border-color var(--transition); box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
+}
+.mgr-input-group input:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-blue-soft);
+}
+.mgr-input-preview {
+    font-size: 12px; color: var(--text-muted); margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    min-height: 16px;
+}
+.mgr-target-inputs {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.mgr-target-inputs input {
+    padding: 9px 10px; font-size: 13px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+    background: var(--bg-card); color: var(--text-primary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    box-sizing: border-box; font-variant-numeric: tabular-nums;
+    transition: border-color var(--transition);
+}
+.mgr-target-inputs input:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-blue-soft);
+}
+.mgr-targets-display { margin-bottom: 8px; }
+.mgr-target-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.mgr-target-col {
+    text-align: center; padding: 10px 8px;
+    background: var(--bg-elevated); border-radius: var(--radius-sm);
+    border: 1px solid var(--border-hairline);
+}
+.mgr-target-label {
+    display: block; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--text-tertiary); margin-bottom: 4px;
+}
+.mgr-target-val {
+    font-size: 15px; font-weight: 600; color: var(--pos);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.mgr-exit-presets {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+    margin: 14px 0;
+}
+.mgr-preset-btn {
+    padding: 9px; font-size: 13px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    background: var(--bg-elevated); color: var(--text-secondary);
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    cursor: pointer; transition: color var(--transition), background var(--transition), border-color var(--transition);
+}
+.mgr-preset-btn:hover {
+    background: var(--accent-blue-soft); border-color: var(--accent);
+    color: var(--accent);
+}
+.mgr-preset-btn.active {
+    background: var(--accent-blue-soft); color: var(--accent); border-color: var(--accent);
+}
+.mgr-preset-full:hover {
+    background: var(--danger-soft); border-color: var(--neg);
+    color: var(--neg);
+}
+.mgr-preset-full.active {
+    background: var(--danger-soft); color: var(--neg); border-color: var(--neg);
+}
+.mgr-action-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; padding: 11px; margin-top: 16px;
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; border: 1px solid transparent; border-radius: var(--radius-sm);
+    cursor: pointer; transition: background var(--transition), border-color var(--transition), color var(--transition);
+    font-family: inherit;
+}
+.mgr-action-btn svg { width: 14px; height: 14px; }
+.mgr-btn-danger {
+    background: var(--danger-soft); color: var(--neg);
+    border-color: var(--danger-border);
+}
+.mgr-btn-danger:hover { background: var(--neg); color: #fff; border-color: var(--neg); }
+.mgr-btn-success {
+    background: var(--success-soft); color: var(--pos);
+    border-color: var(--success-border);
+}
+.mgr-btn-success:hover { background: var(--pos); color: #fff; border-color: var(--pos); }
+.mgr-btn-blue {
+    background: var(--accent-blue-soft); color: var(--accent);
+    border-color: var(--accent-blue-soft);
+}
+.mgr-btn-blue:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mgr-action-btn:disabled {
+    opacity: 0.4; cursor: not-allowed;
+}
+
+/* Action receipt — a quiet, reversible notification (not a shout) */
+.mgr-toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    padding: 12px 18px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 500;
+    background: var(--surface-raised); color: var(--text-primary);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--accent);
+    box-shadow: var(--shadow-md);
+    animation: mgrToastIn var(--transition-slow) cubic-bezier(.2,0,0,1), mgrToastOut var(--transition-slow) cubic-bezier(.2,0,0,1) 2.7s forwards;
+    font-family: 'Inter', sans-serif;
+}
+.mgr-toast.success { border-left-color: var(--pos); }
+.mgr-toast.error { border-left-color: var(--neg); }
+.mgr-toast.info { border-left-color: var(--accent); }
+@keyframes mgrToastIn { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes mgrToastOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+    .mgr-toast { animation: none; }
+}
+
+/* Exec history type tags */
+.exec-type-tag {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.3px; padding: 2px 8px; border-radius: var(--radius-xs);
+}
+.exec-type-entry { color: var(--accent); background: var(--accent-blue-soft); }
+.exec-type-scale_in { color: var(--accent); background: var(--accent-blue-soft); }
+.exec-type-partial_exit { color: var(--warn); background: var(--warning-soft); }
+.exec-type-full_exit { color: var(--neg); background: var(--danger-soft); }
+
+@media (max-width: 768px) {
+    .mgr-target-row { grid-template-columns: 1fr; }
+    .mgr-target-inputs { grid-template-columns: 1fr; }
+    .mgr-exit-presets { grid-template-columns: repeat(2, 1fr); }
+    .mgr-pos-header { flex-direction: column; align-items: flex-start; }
+}
+
+/* ═══ ANALYZE MODE ════════════════════════════════════════════ */
+.ana-summary-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-bottom: 16px;
+}
+/* Panels, not cartoon cards: hairline border, no gradient accent bar. */
+.ana-card {
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); padding: 18px;
+    transition: border-color var(--transition), background var(--transition);
+}
+.ana-card:hover { border-color: var(--border-strong); background: var(--bg-card-hover); }
+.ana-card-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 8px;
+}
+.ana-card-value {
+    font-size: 28px; font-weight: 600; font-family: 'JetBrains Mono', 'Inter', monospace;
+    color: var(--text-primary); line-height: 1; letter-spacing: -0.4px;
+    font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+.ana-card-sub {
+    font-size: 11px; color: var(--text-muted); margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+
+/* Stat rows for Trade Stats / Streaks */
+.ana-stat-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 9px 0; border-bottom: 1px solid var(--border-hairline);
+}
+.ana-stat-row:last-child { border-bottom: none; }
+.ana-stat-label { font-size: 13px; color: var(--text-secondary); }
+.ana-stat-value {
+    font-size: 13px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Streak badges */
+.ana-streak-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; padding: 3px 10px;
+    border-radius: var(--radius-xs); letter-spacing: 0.3px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.ana-streak-badge.win { color: var(--pos); background: var(--success-soft); border: 1px solid var(--success-border); }
+.ana-streak-badge.loss { color: var(--neg); background: var(--danger-soft); border: 1px solid var(--danger-border); }
+.ana-streak-badge.none { color: var(--text-muted); background: var(--bg-elevated); border: 1px solid var(--border-hairline); }
+
+/* R-Multiple cell coloring (semantic on data) */
+.r-positive { color: var(--pos); font-weight: 600; }
+.r-negative { color: var(--neg); font-weight: 600; }
+
+@media (max-width: 768px) {
+    .ana-summary-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ═══ REVIEW MODE ═════════════════════════════════════════════ */
+.rev-layout {
+    display: grid; grid-template-columns: 280px 1fr; gap: 16px;
+    min-height: 500px;
+}
+.rev-sidebar {
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column;
+}
+.rev-sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-hairline);
+}
+.rev-sidebar-header h3 {
+    font-size: 12px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-secondary); margin: 0;
+}
+.rev-trade-count {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: var(--radius-xs); background: var(--accent-blue-soft);
+    color: var(--accent); border: 1px solid var(--accent-blue-soft);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rev-sidebar-stats {
+    padding: 12px 16px; border-bottom: 1px solid var(--border-hairline);
+    font-size: 12px; color: var(--text-muted); display: flex; gap: 14px;
+}
+.rev-sidebar-stats .rev-stat { display: flex; align-items: center; gap: 4px; }
+.rev-sidebar-stats .rev-stat-val { font-weight: 600; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+.rev-trade-list {
+    flex: 1; overflow-y: auto; max-height: 600px;
+}
+.rev-trade-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 16px; border-bottom: 1px solid var(--border-hairline);
+    cursor: pointer; transition: background var(--transition);
+    border-left: 3px solid transparent;
+}
+.rev-trade-item:last-child { border-bottom: none; }
+.rev-trade-item:hover { background: var(--surface-hover); }
+.rev-trade-item.active { background: var(--accent-blue-soft); border-left-color: var(--accent); }
+.rev-trade-item-left {
+    display: flex; flex-direction: column; gap: 3px;
+}
+.rev-trade-sym { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.rev-trade-meta {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rev-trade-pnl {
+    font-size: 13px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rev-trade-pnl.positive { color: var(--pos); }
+.rev-trade-pnl.negative { color: var(--neg); }
+.rev-review-status {
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.4px; padding: 1px 7px; border-radius: var(--radius-xs);
+    margin-top: 3px; display: inline-block;
+}
+.rev-review-status.completed { color: var(--pos); background: var(--success-soft); }
+.rev-review-status.in_progress { color: var(--warn); background: var(--warning-soft); }
+.rev-review-status.open { color: var(--text-muted); background: var(--bg-elevated); }
+
+/* Dashboard */
+.rev-dashboard { min-height: 400px; }
+.rev-placeholder {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 300px; color: var(--text-muted); text-align: center; gap: 12px;
+    background: var(--bg-card); border: 1px solid var(--border-hairline); border-radius: var(--radius);
+}
+.rev-placeholder svg { color: var(--text-tertiary); }
+.rev-placeholder p { font-size: 13px; max-width: 300px; }
+.rev-section { margin-bottom: 16px; }
+.rev-trade-header {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 16px; margin-bottom: 16px;
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+}
+.rev-header-sym { font-size: 20px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.3px; }
+.rev-header-pnl {
+    font-size: 16px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rev-header-detail {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+
+/* Thesis vs Reality */
+.rev-comparison {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+}
+.rev-col-header {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid;
+}
+.rev-col-header.thesis { color: var(--text-secondary); border-color: var(--border-strong); }
+.rev-col-header.reality { color: var(--accent); border-color: var(--accent); }
+.rev-comp-row {
+    display: flex; justify-content: space-between; gap: 8px; padding: 6px 0;
+    font-size: 12px; border-bottom: 1px solid var(--border-hairline);
+}
+.rev-comp-row:last-child { border-bottom: none; }
+.rev-comp-label { color: var(--text-muted); }
+.rev-comp-value { font-weight: 500; font-family: 'JetBrains Mono', monospace; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* Timeline */
+.rev-timeline { max-height: 350px; overflow-y: auto; }
+.rev-tl-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0; border-bottom: 1px solid var(--border-hairline);
+}
+.rev-tl-item:last-child { border-bottom: none; }
+.rev-tl-icon {
+    width: 26px; height: 26px; border-radius: var(--radius-sm); display: flex;
+    align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.rev-tl-icon svg { width: 14px; height: 14px; }
+.rev-tl-icon.event { background: var(--accent-blue-soft); color: var(--accent); }
+.rev-tl-icon.journal { background: var(--warning-soft); color: var(--warn); }
+.rev-tl-body { flex: 1; }
+.rev-tl-text { font-size: 12px; color: var(--text-primary); }
+.rev-tl-time {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.rev-tl-empty {
+    text-align: center; padding: 30px; color: var(--text-muted); font-size: 12px;
+}
+
+/* Reflection Form */
+.rev-reflection-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.rev-field { display: flex; flex-direction: column; gap: 6px; }
+.rev-field label {
+    font-size: 11px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.6px; color: var(--text-tertiary);
+}
+.rev-field textarea {
+    background: var(--bg-card); border: 1px solid var(--border-hairline);
+    border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px;
+    color: var(--text-primary); font-family: 'Inter', sans-serif;
+    resize: vertical; transition: border-color var(--transition);
+}
+.rev-field textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-blue-soft); }
+.rev-field textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+.rev-actions {
+    display: flex; gap: 12px; margin-top: 16px;
+}
+.rev-actions .mgr-action-btn { flex: 1; margin-top: 0; }
+.rev-status-badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px;
+    border-radius: var(--radius-xs); letter-spacing: 0.3px; text-transform: uppercase;
+}
+.rev-status-badge.open { color: var(--text-muted); background: var(--bg-elevated); }
+.rev-status-badge.in_progress { color: var(--warn); background: var(--warning-soft); }
+.rev-status-badge.completed { color: var(--pos); background: var(--success-soft); }
+
+@media (max-width: 768px) {
+    .rev-layout { grid-template-columns: 1fr; }
+    .rev-comparison { grid-template-columns: 1fr; }
+    .rev-reflection-grid { grid-template-columns: 1fr; }
+}
+
+/* Respect reduced motion across the page */
+@media (prefers-reduced-motion: reduce) {
+    .poc-risk-bar-fill { transition: none; }
+}
+</style>
+
+<script>
+// ═══ PORTFOLIO CENTER — MONITOR MODE JS ══════════════════════════════
+
+let currentPortfolioId = null;
+let sectorChartInstance = null;
+let strategyChartInstance = null;
+
+// ── Init ─────────────────────────────────────────────────────────────
+async function initPortfolioCenter() {
+    const select = document.getElementById('portfolioSelect');
+    let portfolios = QuantResearch.PortfolioRepository.getAll();
+
+    // Seed defaults if empty
+    if (portfolios.length === 0) {
+        QuantResearch.createPortfolio({ name: 'Default Portfolio', type: 'paper', initial_capital: 100000 });
+        QuantResearch.createPortfolio({ name: 'Paper Trading', type: 'paper', initial_capital: 500000 });
+        portfolios = QuantResearch.PortfolioRepository.getAll();
+    }
+
+    select.innerHTML = portfolios.map(p =>
+        `<option value="${p.portfolio_id}">${p.name} (${p.type})</option>`
+    ).join('');
+
+    currentPortfolioId = portfolios[0].portfolio_id;
+    loadMonitor();
+}
+
+// ── Load Monitor ─────────────────────────────────────────────────────
+function loadMonitor() {
+    const select = document.getElementById('portfolioSelect');
+    currentPortfolioId = select.value;
+    if (!currentPortfolioId) return;
+
+    const summary = QuantResearch.getPortfolioSummary(currentPortfolioId);
+    if (!summary) return;
+
+    document.getElementById('pocLoading').style.display = 'none';
+    document.getElementById('monitorContent').style.display = 'block';
+
+    renderSummaryCards(summary);
+    renderRiskPanel(summary);
+    renderExposurePanel(summary);
+    renderAllocationCharts(summary);
+    renderPositionsTable(summary);
+}
+
+// ── Summary Cards ────────────────────────────────────────────────────
+function renderSummaryCards(s) {
+    const fmt = (v) => '₹' + (v || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    
+    // Portfolio Health Logic
+    let healthLabel = 'Healthy';
+    let healthAccent = 'accent-green';
+    let healthSub = 'Within limits';
+    if (s.risk_used_pct > 80 || (s.violations && s.violations.length > 0)) {
+        healthLabel = 'High Risk'; healthAccent = 'accent-red'; healthSub = 'Limits exceeded';
+    } else if (s.risk_used_pct > 50) {
+        healthLabel = 'Moderate'; healthAccent = 'accent-cyan'; healthSub = 'Approaching limits';
+    }
+
+    // Budget cards (Equity / Cash Available) removed — personal tool, no capital tracking.
+    const cards = [
+        { label: 'Portfolio Health', value: healthLabel, sub: healthSub, accent: healthAccent },
+        { label: 'Open Positions', value: `${s.open_positions} / ${s.max_positions}`, sub: `Long: ${s.long_positions} · Short: ${s.short_positions}`, accent: '' },
+        { label: 'Net Exposure', value: `${s.net_exposure_pct}%`, sub: `Gross: ${s.gross_exposure_pct}%`, accent: 'accent-cyan' },
+        { label: 'Total P&L', value: fmt(s.total_pnl), sub: `Return: ${s.return_pct}%`, accent: s.total_pnl >= 0 ? 'accent-green' : 'accent-red' },
+    ];
+
+    document.getElementById('summaryCards').innerHTML = cards.map(c => `
+        <div class="poc-summary-card ${c.accent}">
+            <div class="poc-summary-label">${c.label}</div>
+            <div class="poc-summary-value">${c.value}</div>
+            <div class="poc-summary-sub">${c.sub}</div>
+        </div>
+    `).join('');
+}
+
+// ── Risk Panel ───────────────────────────────────────────────────────
+function renderRiskPanel(s) {
+    const risk = QuantResearch.getRisk(currentPortfolioId);
+    if (!risk) return;
+
+    const budgetPct = Math.min(100, risk.risk_budget_used_pct);
+    const barColor = budgetPct > 80 ? 'var(--neg)' : budgetPct > 50 ? 'var(--warn)' : 'var(--pos)';
+    const badge = document.getElementById('riskBadge');
+
+    if (budgetPct > 80) { badge.textContent = 'HIGH RISK'; badge.className = 'poc-panel-badge danger'; }
+    else if (budgetPct > 50) { badge.textContent = 'MODERATE'; badge.className = 'poc-panel-badge warn'; }
+    else { badge.textContent = 'HEALTHY'; badge.className = 'poc-panel-badge safe'; }
+
+    const remainingPct = Math.max(0, 100 - budgetPct);
+    let html = `
+        <div class="poc-risk-budget">
+            <div class="poc-risk-budget-top">
+                <span class="poc-risk-budget-caption">Risk budget used</span>
+                <span class="poc-risk-budget-num" style="color:${barColor}">${budgetPct.toFixed(1)}%</span>
+            </div>
+            <div class="poc-risk-bar-bg">
+                <div class="poc-risk-bar-fill" style="width:${budgetPct}%; background:${barColor}"></div>
+            </div>
+            <div class="poc-risk-bar-label">
+                <span>${remainingPct.toFixed(1)}% remaining</span>
+                <span>of 100% budget</span>
+            </div>
+        </div>
+        <div style="margin-top:16px">
+            <div class="poc-risk-row">
+                <span class="poc-risk-label">Total Risk</span>
+                <span class="poc-risk-value" style="color:${barColor}">${risk.total_risk_pct}%</span>
+            </div>
+            <div class="poc-risk-row">
+                <span class="poc-risk-label">Max Single Position Risk</span>
+                <span class="poc-risk-value">${risk.max_single_position_risk_pct}%</span>
+            </div>
+            <div class="poc-risk-row">
+                <span class="poc-risk-label">Budget Remaining</span>
+                <span class="poc-risk-value" style="color:var(--pos)">${remainingPct.toFixed(1)}%</span>
+            </div>
+            <div class="poc-risk-row">
+                <span class="poc-risk-label">Positions at Risk</span>
+                <span class="poc-risk-value">${risk.positions_at_risk}</span>
+            </div>
+        </div>
+    `;
+
+    // Per-position risk breakdown
+    if (risk.risk_by_position.length > 0) {
+        html += '<div style="margin-top:12px; border-top:1px solid var(--border-subtle); padding-top:12px">';
+        risk.risk_by_position.forEach(p => {
+            html += `<div class="poc-risk-row">
+                <span class="poc-risk-label" style="font-weight:700; color:var(--text-primary)">${p.symbol}</span>
+                <span class="poc-risk-value">${p.risk_pct}% (₹${p.risk_amount.toLocaleString('en-IN')})</span>
+            </div>`;
+        });
+        html += '</div>';
+    }
+
+    document.getElementById('riskBody').innerHTML = html;
+}
+
+// ── Exposure Panel ───────────────────────────────────────────────────
+function renderExposurePanel(s) {
+    const exposure = QuantResearch.getExposure(currentPortfolioId);
+    if (!exposure) return;
+
+    const badge = document.getElementById('exposureBadge');
+    if (exposure.gross_exposure_pct > 80) { badge.textContent = 'HEAVY'; badge.className = 'poc-panel-badge warn'; }
+    else if (exposure.gross_exposure_pct > 50) { badge.textContent = 'MODERATE'; badge.className = 'poc-panel-badge safe'; }
+    else { badge.textContent = 'LIGHT'; badge.className = 'poc-panel-badge safe'; }
+
+    const fmt = (v) => '₹' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    const rows = [
+        { label: 'Long Exposure', value: `${fmt(exposure.long_exposure)} (${exposure.long_exposure_pct}%)`, color: 'var(--pos)' },
+        { label: 'Short Exposure', value: `${fmt(exposure.short_exposure)} (${exposure.short_exposure_pct}%)`, color: 'var(--neg)' },
+        { label: 'Gross Exposure', value: `${fmt(exposure.gross_exposure)} (${exposure.gross_exposure_pct}%)`, color: 'var(--text-primary)' },
+        { label: 'Net Exposure', value: `${fmt(exposure.net_exposure)} (${exposure.net_exposure_pct}%)`, color: 'var(--accent)' },
+        { label: 'Long Positions', value: exposure.long_positions, color: 'var(--text-primary)' },
+        { label: 'Short Positions', value: exposure.short_positions, color: 'var(--text-primary)' },
+    ];
+
+    document.getElementById('exposureBody').innerHTML = rows.map(r => `
+        <div class="poc-risk-row">
+            <span class="poc-risk-label">${r.label}</span>
+            <span class="poc-risk-value" style="color:${r.color}">${r.value}</span>
+        </div>
+    `).join('');
+}
+
+// ── Allocation Charts ────────────────────────────────────────────────
+// Shared, theme-aware chart tokens (read the CSS variables so dark/light both work).
+function _chartTokens() {
+    const style = getComputedStyle(document.documentElement);
+    const c = (name, fb) => (style.getPropertyValue(name).trim() || fb);
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    return {
+        accent: c('--accent', '#4C8DFF'),
+        accent2: c('--accent-2', '#7B74FF'),
+        pos: c('--pos', '#2FB67A'),
+        neg: c('--neg', '#E5484D'),
+        warn: c('--warn', '#E8A33D'),
+        muted: c('--text-muted', '#646D7C'),
+        grid: isLight ? 'rgba(11,15,23,0.06)' : 'rgba(231,235,242,0.05)',
+        accentSoft: isLight ? 'rgba(47,111,224,0.08)' : 'rgba(76,141,255,0.10)',
+        negSoft: isLight ? 'rgba(207,58,63,0.08)' : 'rgba(229,72,77,0.12)',
+    };
+}
+
+function renderAllocationCharts(s) {
+    const style = getComputedStyle(document.documentElement);
+    const c = (name) => style.getPropertyValue(name).trim() || '#646D7C';
+    const t = _chartTokens();
+
+    // Categorical allocation palette derived from theme tokens (no ad-hoc hex).
+    const chartColors = [
+        t.accent, t.accent2, t.pos, t.warn, t.neg,
+        c('--accent-purple'), c('--text-secondary'), c('--text-tertiary'), t.accent, t.pos
+    ];
+
+    // Sector
+    const sectorLabels = Object.keys(s.sector_allocation);
+    const sectorValues = Object.values(s.sector_allocation);
+    const sectorCanvas = document.getElementById('sectorChart');
+    const sectorEmpty = document.getElementById('sectorEmpty');
+
+    if (sectorChartInstance) sectorChartInstance.destroy();
+    if (sectorLabels.length > 0) {
+        sectorCanvas.style.display = 'block';
+        sectorEmpty.style.display = 'none';
+        sectorChartInstance = new Chart(sectorCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: sectorLabels,
+                datasets: [{ data: sectorValues, backgroundColor: chartColors.slice(0, sectorLabels.length), borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: c('--text-secondary'), font: { size: 11, family: 'Inter' } } }
+                },
+                cutout: '65%'
+            }
+        });
+    } else {
+        sectorCanvas.style.display = 'none';
+        sectorEmpty.style.display = 'block';
+    }
+
+    // Strategy
+    const stratLabels = Object.keys(s.strategy_allocation);
+    const stratValues = Object.values(s.strategy_allocation);
+    const stratColors = { swing: t.accent, momentum: t.accent2, ai_hc: t.warn, custom: c('--accent-purple'), manual: c('--text-tertiary') };
+    const stratCanvas = document.getElementById('strategyChart');
+    const stratEmpty = document.getElementById('strategyEmpty');
+
+    if (strategyChartInstance) strategyChartInstance.destroy();
+    if (stratLabels.length > 0) {
+        stratCanvas.style.display = 'block';
+        stratEmpty.style.display = 'none';
+        strategyChartInstance = new Chart(stratCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: stratLabels.map(l => l.replace('_', ' ').toUpperCase()),
+                datasets: [{ data: stratValues, backgroundColor: stratLabels.map(l => stratColors[l] || c('--text-muted')), borderWidth: 0 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: c('--text-secondary'), font: { size: 11, family: 'Inter' } } }
+                },
+                cutout: '65%'
+            }
+        });
+    } else {
+        stratCanvas.style.display = 'none';
+        stratEmpty.style.display = 'block';
+    }
+}
+
+// ── Positions Table ──────────────────────────────────────────────────
+function renderPositionsTable(s) {
+    const positions = s.positions || [];
+    const posCount = document.getElementById('posCount');
+    const tbody = document.getElementById('positionsBody');
+    const empty = document.getElementById('posEmpty');
+    const table = document.getElementById('positionsTable');
+
+    posCount.textContent = `${positions.length} position${positions.length !== 1 ? 's' : ''}`;
+
+    if (positions.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    empty.style.display = 'none';
+
+    const risk = QuantResearch.getRisk(currentPortfolioId);
+    const riskMap = {};
+    if (risk) risk.risk_by_position.forEach(r => { riskMap[r.position_id] = r; });
+
+    tbody.innerHTML = positions.map(pos => {
+        const r = riskMap[pos.position_id] || {};
+        const age = _daysSince(pos.created_at);
+        const t1 = pos.targets && pos.targets[0] ? '₹' + pos.targets[0].toLocaleString('en-IN') : '—';
+
+        return `<tr onclick="window.location.href='/symbol/${pos.symbol}'">
+            <td data-label="Symbol" class="sym-cell">${pos.symbol}</td>
+            <td data-label="Strategy"><span class="tag tag-${pos.strategy}">${pos.strategy}</span></td>
+            <td data-label="Side"><span class="tag-${pos.side}">${pos.side.toUpperCase()}</span></td>
+            <td data-label="Entry" class="mono">₹${pos.entry_price.toLocaleString('en-IN')}</td>
+            <td data-label="Qty" class="mono">${pos.quantity}</td>
+            <td data-label="Stop Loss" class="mono" style="color:var(--neg)">₹${pos.stop_loss.toLocaleString('en-IN')}</td>
+            <td data-label="Target 1" class="mono" style="color:var(--pos)">${t1}</td>
+            <td data-label="Risk %" class="mono">${(r.risk_pct || 0).toFixed(2)}%</td>
+            <td data-label="Size %" class="mono">${pos.position_size_pct}%</td>
+            <td data-label="Source"><span class="src-${pos.source}">${pos.source.toUpperCase()}</span></td>
+            <td data-label="Advice" class="poc-advice-cell" data-symbol="${pos.symbol}">
+                <div class="poc-advice-wrap">
+                    <span class="poc-verdict-badge v-loading">…</span>
+                </div>
+            </td>
+            <td data-label="Age" class="mono">${age}</td>
+        </tr>`;
+    }).join('');
+
+    // On-demand advice: fetch backend verdicts (keyed by symbol) and fill cells.
+    loadPositionAdvice();
+}
+
+// ── On-Demand Advice ─────────────────────────────────────────────────
+// The monitor table is localStorage-driven (client UUIDs), so we key advice
+// by SYMBOL. The backend GET /positions endpoint returns a per-position
+// verdict + reasons computed from scan data OR fresh live indicators for
+// out-of-universe holdings.
+async function loadPositionAdvice() {
+    if (!currentPortfolioId) return;
+    const cells = document.querySelectorAll('.poc-advice-cell');
+    if (!cells.length) return;
+    try {
+        const res = await fetch(`/api/portfolios/${currentPortfolioId}/positions?status=OPEN`);
+        if (!res.ok) throw new Error('advice fetch failed');
+        const data = await res.json();
+        const bySymbol = {};
+        (data.positions || []).forEach(p => {
+            if (p.verdict) bySymbol[p.symbol] = p;
+        });
+        cells.forEach(cell => {
+            const sym = cell.getAttribute('data-symbol');
+            renderAdviceCell(cell, bySymbol[sym]);
+        });
+    } catch (e) {
+        cells.forEach(cell => renderAdviceCell(cell, null));
+    }
+}
+
+function renderAdviceCell(cell, adv) {
+    if (!adv || !adv.verdict) {
+        cell.querySelector('.poc-advice-wrap').innerHTML =
+            `<span class="poc-verdict-badge v-hold">—</span>`;
+        return;
+    }
+    const verdict = adv.verdict;
+    const cls = 'v-' + verdict.toLowerCase();
+    const label = verdict.replace('_', ' ');
+    const reasons = (adv.advice_reasons || []).slice(0, 3);
+    const chips = reasons.map(r =>
+        `<span class="poc-reason-chip">${_escapeHtml(r)}</span>`).join('');
+    const flag = (adv.in_universe === false)
+        ? `<span class="poc-advice-flag" title="Not in research universe — advice uses fresh live indicators">Off-universe</span>`
+        : '';
+    cell.querySelector('.poc-advice-wrap').innerHTML =
+        `<span class="poc-verdict-badge ${cls}">${label}</span>` +
+        (chips ? `<div class="poc-reason-chips">${chips}</div>` : '') + flag;
+}
+
+function _escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function _daysSince(iso) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const days = Math.floor(diff / 86400000);
+    if (days === 0) return 'Today';
+    if (days === 1) return '1d';
+    return days + 'd';
+}
+
+function setMode(mode) {
+    document.querySelectorAll('.poc-mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`.poc-mode-btn[data-mode="${mode}"]`).classList.add('active');
+
+    const subtitle = document.getElementById('modeSubtitle');
+    document.getElementById('monitorContent').style.display = mode === 'monitor' ? 'block' : 'none';
+    document.getElementById('manageContent').style.display = mode === 'manage' ? 'block' : 'none';
+    document.getElementById('analyzeContent').style.display = mode === 'analyze' ? 'block' : 'none';
+    document.getElementById('reviewContent').style.display = mode === 'review' ? 'block' : 'none';
+
+    // Destroy analyze charts when leaving analyze mode
+    if (mode !== 'analyze') destroyAnalyzeCharts();
+
+    if (mode === 'monitor') {
+        subtitle.textContent = 'Monitor Mode — Real-time portfolio health, risk, and exposure';
+        loadMonitor();
+    } else if (mode === 'manage') {
+        subtitle.textContent = 'Manage Mode — Update stops, targets, scale, and exit positions';
+        loadManagePositionList();
+    } else if (mode === 'analyze') {
+        subtitle.textContent = 'Analyze Mode — Performance analytics, trade statistics, and strategy attribution';
+        loadAnalyze();
+    } else if (mode === 'review') {
+        subtitle.textContent = 'Review Mode — Post-trade reflection, thesis comparison, and lessons learned';
+        loadReviewMode();
+    }
+}
+
+// ═══ MANAGE MODE JS ══════════════════════════════════════════════════
+
+let _managedPosition = null;
+
+// ── Metric Refresh (Gap 2: Keep Monitor Mode fresh after mutations) ──
+function _refreshMonitorMetrics() {
+    if (!currentPortfolioId) return;
+    const summary = QuantResearch.getPortfolioSummary(currentPortfolioId);
+    if (summary) {
+        renderSummaryCards(summary);
+        renderRiskPanel(summary);
+        renderExposurePanel(summary);
+        renderAllocationCharts(summary);
+        renderPositionsTable(summary);
+    }
+}
+
+function loadManagePositionList() {
+    const select = document.getElementById('managePositionSelect');
+    const positions = QuantResearch.getPositions(currentPortfolioId).filter(p => p.status !== 'closed');
+
+    select.innerHTML = '<option value="">— Select a position —</option>' +
+        positions.map(p => `<option value="${p.position_id}">${p.symbol} · ${p.side.toUpperCase()} · ${p.quantity} shares @ ₹${p.entry_price.toLocaleString('en-IN')}</option>`).join('');
+
+    document.getElementById('manageEmpty').style.display = 'block';
+    document.getElementById('manageHeader').style.display = 'none';
+    document.getElementById('managePanels').style.display = 'none';
+    _managedPosition = null;
+}
+
+function loadManagePosition() {
+    const posId = document.getElementById('managePositionSelect').value;
+    if (!posId) {
+        document.getElementById('manageEmpty').style.display = 'block';
+        document.getElementById('manageHeader').style.display = 'none';
+        document.getElementById('managePanels').style.display = 'none';
+        _managedPosition = null;
+        return;
+    }
+
+    const pos = QuantResearch.getPositions(currentPortfolioId).find(p => p.position_id === posId);
+    if (!pos) return;
+    _managedPosition = pos;
+
+    document.getElementById('manageEmpty').style.display = 'none';
+    document.getElementById('manageHeader').style.display = 'flex';
+    document.getElementById('managePanels').style.display = 'block';
+
+    // Header
+    document.getElementById('mgrSymbol').textContent = pos.symbol;
+    const sideEl = document.getElementById('mgrSide');
+    sideEl.textContent = pos.side.toUpperCase();
+    sideEl.className = `tag tag-${pos.side}`;
+    const stratEl = document.getElementById('mgrStrategy');
+    stratEl.textContent = pos.strategy.toUpperCase();
+    stratEl.className = `tag tag-${pos.strategy}`;
+    document.getElementById('mgrEntry').textContent = '₹' + pos.entry_price.toLocaleString('en-IN');
+    document.getElementById('mgrQty').textContent = pos.quantity;
+    document.getElementById('mgrStatus').textContent = pos.status.toUpperCase();
+
+    // Section A: Stop
+    document.getElementById('currentStopValue').textContent = '₹' + pos.stop_loss.toLocaleString('en-IN');
+    const riskAtStop = ((pos.entry_price - pos.stop_loss) / pos.entry_price * 100).toFixed(2);
+    document.getElementById('currentStopRisk').textContent = riskAtStop + '%';
+    document.getElementById('currentStopRisk').style.color = riskAtStop > 5 ? 'var(--neg)' : 'var(--warn)';
+    const stopBadge = document.getElementById('stopBadge');
+    stopBadge.textContent = '₹' + pos.stop_loss.toLocaleString('en-IN');
+    document.getElementById('newStopInput').value = '';
+    document.getElementById('stopPreview').textContent = '';
+
+    // Section B: Targets
+    document.getElementById('currentT1').textContent = pos.targets[0] ? '₹' + pos.targets[0].toLocaleString('en-IN') : '—';
+    document.getElementById('currentT2').textContent = pos.targets[1] ? '₹' + pos.targets[1].toLocaleString('en-IN') : '—';
+    document.getElementById('currentT3').textContent = pos.targets[2] ? '₹' + pos.targets[2].toLocaleString('en-IN') : '—';
+    const targetBadge = document.getElementById('targetBadge');
+    targetBadge.textContent = pos.targets.length + ' TARGETS';
+    document.getElementById('newT1').value = pos.targets[0] || '';
+    document.getElementById('newT2').value = pos.targets[1] || '';
+    document.getElementById('newT3').value = pos.targets[2] || '';
+
+    // Section C: Scale
+    document.getElementById('scaleCurrentQty').textContent = pos.quantity;
+    document.getElementById('scaleEntryPrice').textContent = '₹' + pos.entry_price.toLocaleString('en-IN');
+    document.getElementById('scaleQtyInput').value = '';
+    document.getElementById('scalePriceInput').value = '';
+    document.getElementById('scalePreview').textContent = '';
+
+    // Section D: Exit
+    document.getElementById('exitCurrentQty').textContent = pos.quantity;
+    document.getElementById('exitRealizedPnl').textContent = '₹' + (pos.realized_pnl || 0).toLocaleString('en-IN');
+    document.getElementById('exitRealizedPnl').style.color = (pos.realized_pnl || 0) >= 0 ? 'var(--pos)' : 'var(--neg)';
+    document.getElementById('exitPriceInput').value = '';
+    document.getElementById('exitQtyInput').value = '';
+    document.getElementById('exitPreview').textContent = '';
+    document.querySelectorAll('.mgr-preset-btn').forEach(b => b.classList.remove('active'));
+
+    // Execution History
+    renderExecutionHistory();
+}
+
+// ── Live Previews ────────────────────────────────────────────────────
+document.addEventListener('input', function(e) {
+    if (!_managedPosition) return;
+    const pos = _managedPosition;
+
+    if (e.target.id === 'newStopInput') {
+        const val = parseFloat(e.target.value);
+        if (val && val > 0) {
+            const riskPct = ((pos.entry_price - val) / pos.entry_price * 100).toFixed(2);
+            const riskAmt = ((pos.entry_price - val) * pos.quantity).toFixed(0);
+            document.getElementById('stopPreview').innerHTML =
+                `Risk: <strong style="color:var(--neg)">${riskPct}%</strong> · Loss at stop: <strong style="color:var(--neg)">₹${parseInt(riskAmt).toLocaleString('en-IN')}</strong>`;
+        } else {
+            document.getElementById('stopPreview').textContent = '';
+        }
+    }
+
+    if (e.target.id === 'scaleQtyInput' || e.target.id === 'scalePriceInput') {
+        const addQty = parseInt(document.getElementById('scaleQtyInput').value) || 0;
+        const scalePrice = parseFloat(document.getElementById('scalePriceInput').value) || 0;
+        if (addQty > 0 && scalePrice > 0) {
+            const totalQty = pos.quantity + addQty;
+            const avgPrice = ((pos.entry_price * pos.quantity) + (scalePrice * addQty)) / totalQty;
+            document.getElementById('scalePreview').innerHTML =
+                `New Qty: <strong>${totalQty}</strong> · Avg Price: <strong>₹${avgPrice.toFixed(2)}</strong>`;
+        } else {
+            document.getElementById('scalePreview').textContent = '';
+        }
+    }
+
+    if (e.target.id === 'exitQtyInput' || e.target.id === 'exitPriceInput') {
+        const exitQty = parseInt(document.getElementById('exitQtyInput').value) || 0;
+        const exitPrice = parseFloat(document.getElementById('exitPriceInput').value) || 0;
+        if (exitQty > 0 && exitPrice > 0) {
+            const direction = pos.side === 'short' ? -1 : 1;
+            const pnl = direction * (exitPrice - pos.entry_price) * exitQty;
+            const color = pnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+            document.getElementById('exitPreview').innerHTML =
+                `P&L: <strong style="color:${color}">₹${pnl.toLocaleString('en-IN', {maximumFractionDigits:0})}</strong> · Remaining: <strong>${pos.quantity - exitQty}</strong>`;
+        } else {
+            document.getElementById('exitPreview').textContent = '';
+        }
+        document.querySelectorAll('.mgr-preset-btn').forEach(b => b.classList.remove('active'));
+    }
+});
+
+function setExitPercent(pct) {
+    if (!_managedPosition) return;
+    const qty = Math.round(_managedPosition.quantity * pct / 100);
+    document.getElementById('exitQtyInput').value = qty;
+    document.querySelectorAll('.mgr-preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('exitQtyInput').dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+// ── Execute Actions ──────────────────────────────────────────────────
+function executeUpdateStop() {
+    if (!_managedPosition) return;
+    const newStop = parseFloat(document.getElementById('newStopInput').value);
+    if (!newStop || newStop <= 0) { showToast('Enter a valid stop price', 'error'); return; }
+
+    QuantResearch.PortfolioRepository.updateStopLoss(currentPortfolioId, _managedPosition.position_id, newStop);
+    showToast(`Stop updated to ₹${newStop.toLocaleString('en-IN')}`, 'success');
+    loadManagePosition();
+    _refreshMonitorMetrics();
+}
+
+function executeUpdateTargets() {
+    if (!_managedPosition) return;
+    const t1 = parseFloat(document.getElementById('newT1').value) || 0;
+    const t2 = parseFloat(document.getElementById('newT2').value) || 0;
+    const t3 = parseFloat(document.getElementById('newT3').value) || 0;
+    const targets = [t1, t2, t3].filter(t => t > 0);
+    if (targets.length === 0) { showToast('Enter at least one target', 'error'); return; }
+
+    QuantResearch.PortfolioRepository.updateTargets(currentPortfolioId, _managedPosition.position_id, targets);
+    showToast(`Targets updated: ${targets.map(t => '₹' + t.toLocaleString('en-IN')).join(', ')}`, 'success');
+    loadManagePosition();
+    _refreshMonitorMetrics();
+}
+
+function executeScale() {
+    if (!_managedPosition) return;
+    const qty = parseInt(document.getElementById('scaleQtyInput').value);
+    const price = parseFloat(document.getElementById('scalePriceInput').value);
+    if (!qty || qty <= 0) { showToast('Enter quantity to add', 'error'); return; }
+    if (!price || price <= 0) { showToast('Enter scale-in price', 'error'); return; }
+
+    const posId = _managedPosition.position_id;
+    QuantResearch.PortfolioRepository.scalePosition(currentPortfolioId, posId, qty, price);
+    showToast(`Scaled +${qty} shares @ ₹${price.toLocaleString('en-IN')}`, 'success');
+    loadManagePositionList();
+    // Re-select the same position and refresh execution history
+    setTimeout(() => {
+        document.getElementById('managePositionSelect').value = posId;
+        loadManagePosition();
+    }, 50);
+    _refreshMonitorMetrics();
+}
+
+function executeExit() {
+    if (!_managedPosition) return;
+    const qty = parseInt(document.getElementById('exitQtyInput').value);
+    const price = parseFloat(document.getElementById('exitPriceInput').value);
+    if (!qty || qty <= 0) { showToast('Enter exit quantity', 'error'); return; }
+    if (!price || price <= 0) { showToast('Enter exit price', 'error'); return; }
+    if (qty > _managedPosition.quantity) { showToast('Quantity exceeds position size', 'error'); return; }
+
+    if (qty >= _managedPosition.quantity) {
+        // Full exit — confirmation dialog
+        if (!confirm(`Close entire position in ${_managedPosition.symbol}?\n\nEntry: ₹${_managedPosition.entry_price.toLocaleString('en-IN')}\nQty: ${_managedPosition.quantity}\nExit: ₹${price.toLocaleString('en-IN')}\n\nThis cannot be undone.`)) return;
+
+        const direction = _managedPosition.side === 'short' ? -1 : 1;
+        const pnl = direction * (price - _managedPosition.entry_price) * _managedPosition.quantity;
+        QuantResearch.PortfolioRepository.closePosition(currentPortfolioId, _managedPosition.position_id, price, 'manual');
+        showToast(`Position closed @ ₹${price.toLocaleString('en-IN')} — P&L: ₹${pnl.toLocaleString('en-IN', {maximumFractionDigits:0})}`, pnl >= 0 ? 'success' : 'error');
+        // Gap 3: Remove closed position from dropdown, reset panels
+        _managedPosition = null;
+        loadManagePositionList();
+    } else {
+        // Partial exit
+        const posId = _managedPosition.position_id;
+        QuantResearch.PortfolioRepository.partialExit(currentPortfolioId, posId, qty, price);
+        showToast(`Partial exit: ${qty} shares @ ₹${price.toLocaleString('en-IN')}`, 'success');
+        loadManagePositionList();
+        setTimeout(() => {
+            document.getElementById('managePositionSelect').value = posId;
+            loadManagePosition();
+        }, 50);
+    }
+    _refreshMonitorMetrics();
+}
+
+function renderExecutionHistory() {
+    if (!_managedPosition) return;
+    const execs = QuantResearch.ExecutionRepository.getByPosition(currentPortfolioId, _managedPosition.position_id);
+    const tbody = document.getElementById('execBody');
+    const empty = document.getElementById('execEmpty');
+    const table = document.getElementById('execTable');
+    const count = document.getElementById('execCount');
+
+    count.textContent = `${execs.length} execution${execs.length !== 1 ? 's' : ''}`;
+
+    if (execs.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    table.style.display = 'table';
+    empty.style.display = 'none';
+
+    tbody.innerHTML = execs.map(e => {
+        const typeLabel = e.execution_type.replace('_', ' ');
+        const time = new Date(e.timestamp).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+        return `<tr>
+            <td data-label="Type"><span class="exec-type-tag exec-type-${e.execution_type}">${typeLabel}</span></td>
+            <td data-label="Qty" class="mono">${e.quantity}</td>
+            <td data-label="Price" class="mono">₹${e.price.toLocaleString('en-IN')}</td>
+            <td data-label="Time" class="mono">${time}</td>
+        </tr>`;
+    }).join('');
+}
+
+function showToast(msg, type = 'info') {
+    const existing = document.querySelector('.mgr-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = `mgr-toast ${type}`;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+// ═══ ANALYZE MODE JS ═════════════════════════════════════════════════
+
+let _equityCurveChart = null;
+let _drawdownChart = null;
+let _strategyBarChart = null;
+
+function destroyAnalyzeCharts() {
+    if (_equityCurveChart) { _equityCurveChart.destroy(); _equityCurveChart = null; }
+    if (_drawdownChart) { _drawdownChart.destroy(); _drawdownChart = null; }
+    if (_strategyBarChart) { _strategyBarChart.destroy(); _strategyBarChart = null; }
+}
+
+function loadAnalyze() {
+    if (!currentPortfolioId) return;
+    const perf = QuantResearch.getPerformance(currentPortfolioId);
+    if (!perf || perf.total_trades === 0) {
+        document.getElementById('analyzeEmpty').style.display = 'block';
+        document.getElementById('analyzeData').style.display = 'none';
+        return;
+    }
+    document.getElementById('analyzeEmpty').style.display = 'none';
+    document.getElementById('analyzeData').style.display = 'block';
+
+    destroyAnalyzeCharts();
+    renderAnalyzeCards(perf);
+    renderEquityCurve(perf);
+    renderDrawdownChart(perf);
+    renderTradeStats(perf);
+    renderStreaks(perf);
+    renderAnalyzeStrategyChart(perf);
+    renderClosedTradesTable(perf);
+}
+
+function renderAnalyzeCards(perf) {
+    const pnlColor = perf.return_pct >= 0 ? 'var(--pos)' : 'var(--neg)';
+    const rColor = perf.avg_r_multiple >= 0 ? 'var(--pos)' : 'var(--neg)';
+    document.getElementById('analyzeCards').innerHTML = `
+        <div class="ana-card return">
+            <div class="ana-card-label">Total Return</div>
+            <div class="ana-card-value" style="color:${pnlColor}">${perf.return_pct >= 0 ? '+' : ''}${perf.return_pct}%</div>
+            <div class="ana-card-sub">${perf.realized_pnl >= 0 ? '+' : ''}${perf.realized_pnl.toLocaleString('en-IN')} realized</div>
+        </div>
+        <div class="ana-card winrate">
+            <div class="ana-card-label">Win Rate</div>
+            <div class="ana-card-value">${perf.win_rate}%</div>
+            <div class="ana-card-sub">${perf.wins}W / ${perf.losses}L of ${perf.total_trades}</div>
+        </div>
+        <div class="ana-card pf">
+            <div class="ana-card-label">Profit Factor</div>
+            <div class="ana-card-value">${perf.profit_factor === Infinity ? '∞' : perf.profit_factor}</div>
+            <div class="ana-card-sub">Avg Win ${perf.avg_win.toLocaleString('en-IN')} / Loss ${perf.avg_loss.toLocaleString('en-IN')}</div>
+        </div>
+        <div class="ana-card rmul">
+            <div class="ana-card-label">Avg R-Multiple</div>
+            <div class="ana-card-value" style="color:${rColor}">${perf.avg_r_multiple >= 0 ? '+' : ''}${perf.avg_r_multiple}R</div>
+            <div class="ana-card-sub">${perf.total_trades} trades analyzed</div>
+        </div>
+    `;
+}
+
+function renderEquityCurve(perf) {
+    const canvas = document.getElementById('equityCurveCanvas');
+    const ctx = canvas.getContext('2d');
+    const curve = perf.equity_curve;
+    if (!curve || curve.length === 0) return;
+
+    const labels = curve.map(p => {
+        const d = new Date(p.date);
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    });
+    const data = curve.map(p => p.equity);
+    const t = _chartTokens();
+
+    _equityCurveChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Equity',
+                data: data,
+                borderColor: t.accent,
+                backgroundColor: t.accentSoft,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: t.accent,
+                borderWidth: 1.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `Equity: ${ctx.parsed.y.toLocaleString('en-IN')}`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: v => (v/1000).toFixed(0) + 'K', color: t.muted, font: { size: 10 } },
+                    grid: { color: t.grid },
+                },
+                x: {
+                    ticks: { color: t.muted, font: { size: 10 } },
+                    grid: { display: false },
+                }
+            }
+        }
+    });
+}
+
+function renderDrawdownChart(perf) {
+    const canvas = document.getElementById('drawdownCanvas');
+    const ctx = canvas.getContext('2d');
+    const curve = perf.equity_curve;
+    if (!curve || curve.length === 0) return;
+
+    // Compute drawdown series from equity curve
+    let peak = perf.initial_capital;
+    const ddData = curve.map(p => {
+        if (p.equity > peak) peak = p.equity;
+        const dd = peak > 0 ? -((peak - p.equity) / peak * 100) : 0;
+        return parseFloat(dd.toFixed(2));
+    });
+    const labels = curve.map(p => {
+        const d = new Date(p.date);
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    });
+    const t = _chartTokens();
+
+    _drawdownChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Drawdown',
+                data: ddData,
+                borderColor: t.neg,
+                backgroundColor: t.negSoft,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointBackgroundColor: t.neg,
+                borderWidth: 1.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => `Drawdown: ${ctx.parsed.y.toFixed(2)}%`
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    max: 0,
+                    ticks: { callback: v => v.toFixed(1) + '%', color: t.muted, font: { size: 10 } },
+                    grid: { color: t.grid },
+                },
+                x: {
+                    ticks: { color: t.muted, font: { size: 10 } },
+                    grid: { display: false },
+                }
+            }
+        }
+    });
+}
+
+function renderTradeStats(perf) {
+    const best = perf.best_trade;
+    const worst = perf.worst_trade;
+    document.getElementById('tradeStatsBody').innerHTML = `
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Total Trades</span>
+            <span class="ana-stat-value">${perf.total_trades}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Wins / Losses</span>
+            <span class="ana-stat-value" style="color:var(--pos)">${perf.wins}W</span>
+            <span class="ana-stat-value" style="color:var(--neg)">${perf.losses}L</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Best Trade</span>
+            <span class="ana-stat-value" style="color:var(--pos)">${best ? best.symbol + ' +' + best.pnl.toLocaleString('en-IN') + ' (' + best.r_multiple + 'R)' : '—'}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Worst Trade</span>
+            <span class="ana-stat-value" style="color:var(--neg)">${worst ? worst.symbol + ' ' + worst.pnl.toLocaleString('en-IN') + ' (' + worst.r_multiple + 'R)' : '—'}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Avg Holding Days</span>
+            <span class="ana-stat-value">${perf.avg_holding_days}d</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Expectancy</span>
+            <span class="ana-stat-value" style="color:${perf.expectancy >= 0 ? 'var(--pos)' : 'var(--neg)'}">${perf.expectancy >= 0 ? '+' : ''}${perf.expectancy.toLocaleString('en-IN')}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Max Drawdown</span>
+            <span class="ana-stat-value" style="color:var(--neg)">${perf.max_drawdown_pct}% (${perf.max_drawdown_amount.toLocaleString('en-IN')})</span>
+        </div>
+    `;
+}
+
+function renderStreaks(perf) {
+    const cur = perf.current_streak;
+    document.getElementById('streakBody').innerHTML = `
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Max Consecutive Wins</span>
+            <span class="ana-stat-value" style="color:var(--pos)">${perf.max_consecutive_wins}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Max Consecutive Losses</span>
+            <span class="ana-stat-value" style="color:var(--neg)">${perf.max_consecutive_losses}</span>
+        </div>
+        <div class="ana-stat-row">
+            <span class="ana-stat-label">Current Streak</span>
+            <span class="ana-streak-badge ${cur.type}">${cur.type === 'none' ? 'None' : cur.count + ' ' + (cur.type === 'win' ? 'Win' : 'Loss') + (cur.count > 1 ? 's' : '')}</span>
+        </div>
+    `;
+}
+
+function renderAnalyzeStrategyChart(perf) {
+    const canvas = document.getElementById('strategyBarCanvas');
+    const ctx = canvas.getContext('2d');
+    const strats = perf.strategy_performance;
+    const keys = Object.keys(strats);
+    if (keys.length === 0) return;
+
+    // Color is information: P&L bars tint pos/neg by sign (not a decorative palette).
+    const t = _chartTokens();
+
+    _strategyBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: keys.map(k => k.charAt(0).toUpperCase() + k.slice(1)),
+            datasets: [{
+                label: 'Realized P&L',
+                data: keys.map(k => strats[k].realized_pnl),
+                backgroundColor: keys.map(k => strats[k].realized_pnl >= 0 ? t.pos : t.neg),
+                borderRadius: 2,
+                barThickness: 28,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: (ctx) => {
+                            const k = keys[ctx.dataIndex];
+                            return `Win Rate: ${strats[k].win_rate}% | Trades: ${strats[k].total_trades}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { callback: v => (v >= 0 ? '+' : '') + v.toLocaleString(), color: t.muted, font: { size: 10 } },
+                    grid: { color: t.grid },
+                },
+                y: {
+                    ticks: { color: t.muted, font: { size: 11, weight: 600 } },
+                    grid: { display: false },
+                }
+            }
+        }
+    });
+}
+
+function renderClosedTradesTable(perf) {
+    const positions = QuantResearch.getPositions(currentPortfolioId).filter(p => p.status === 'closed');
+    const table = document.getElementById('closedTradesTable');
+    const tbody = document.getElementById('closedTradesBody');
+    const empty = document.getElementById('closedTradesEmpty');
+    const countEl = document.getElementById('closedTradeCount');
+
+    countEl.textContent = positions.length + ' trade' + (positions.length !== 1 ? 's' : '');
+
+    if (positions.length === 0) {
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+    table.style.display = 'table';
+    empty.style.display = 'none';
+
+    // Sort by close date descending (most recent first)
+    positions.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    tbody.innerHTML = positions.map(pos => {
+        const pnl = pos.realized_pnl || 0;
+        const initRisk = pos.initial_risk_amount || 0;
+        const rMul = initRisk > 0 ? (pnl / initRisk).toFixed(2) : '0.00';
+        const rClass = parseFloat(rMul) >= 0 ? 'r-positive' : 'r-negative';
+        const pnlColor = pnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+        const holdDays = Math.max(0, Math.round((new Date(pos.updated_at) - new Date(pos.entry_date || pos.created_at)) / 86400000));
+
+        // Get last exit price
+        const lastExit = pos.exits && pos.exits.length > 0 ? pos.exits[pos.exits.length - 1].price : pos.entry_price;
+
+        return `<tr>
+            <td class="sym-cell">${pos.symbol}</td>
+            <td><span class="tag tag-${pos.strategy}">${pos.strategy}</span></td>
+            <td class="mono">${pos.entry_price.toLocaleString('en-IN')}</td>
+            <td class="mono">${lastExit.toLocaleString('en-IN')}</td>
+            <td class="mono" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('en-IN')}</td>
+            <td class="mono ${rClass}">${parseFloat(rMul) >= 0 ? '+' : ''}${rMul}R</td>
+            <td class="mono">${holdDays}d</td>
+        </tr>`;
+    }).join('');
+}
+
+// ═══ REVIEW MODE JS ═══════════════════════════════════════════════════
+
+let _reviewPositionId = null;
+
+function loadReviewMode() {
+    if (!currentPortfolioId) return;
+    const positions = QuantResearch.getPositions(currentPortfolioId).filter(p => p.status === 'closed');
+
+    if (positions.length === 0) {
+        document.getElementById('reviewEmpty').style.display = 'block';
+        document.getElementById('reviewLayout').style.display = 'none';
+        return;
+    }
+    document.getElementById('reviewEmpty').style.display = 'none';
+    document.getElementById('reviewLayout').style.display = 'grid';
+
+    // Sidebar stats
+    const reviews = QuantResearch.ReviewRepository.getPortfolioReviews(currentPortfolioId);
+    const completed = reviews.filter(r => r.status === 'completed').length;
+    document.getElementById('revTradeCount').textContent = positions.length;
+    document.getElementById('revSidebarStats').innerHTML = `
+        <div class="rev-stat">Reviewed: <span class="rev-stat-val">${completed}/${positions.length}</span></div>
+        <div class="rev-stat">Rate: <span class="rev-stat-val">${positions.length > 0 ? Math.round(completed / positions.length * 100) : 0}%</span></div>
+    `;
+
+    // Sort by close date DESC
+    positions.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+    // Build sidebar list
+    const reviewMap = {};
+    reviews.forEach(r => { reviewMap[r.source_refs.position_id] = r; });
+
+    document.getElementById('revTradeList').innerHTML = positions.map(pos => {
+        const pnl = pos.realized_pnl || 0;
+        const pnlClass = pnl >= 0 ? 'positive' : 'negative';
+        const rv = reviewMap[pos.position_id];
+        const statusClass = rv ? rv.status : 'open';
+        const statusLabel = rv ? rv.status.replace('_', ' ') : 'Open';
+        const isActive = pos.position_id === _reviewPositionId ? 'active' : '';
+
+        return `<div class="rev-trade-item ${isActive}" onclick="selectReviewTrade('${pos.position_id}')">
+            <div class="rev-trade-item-left">
+                <span class="rev-trade-sym">${pos.symbol}</span>
+                <span class="rev-trade-meta">${pos.strategy} &middot; ${pos.quantity} shares</span>
+                <span class="rev-review-status ${statusClass}">${statusLabel}</span>
+            </div>
+            <div style="text-align:right">
+                <div class="rev-trade-pnl ${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('en-IN')}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Show placeholder if no trade selected
+    if (!_reviewPositionId) {
+        document.getElementById('revPlaceholder').style.display = 'flex';
+        document.getElementById('revActive').style.display = 'none';
+    }
+}
+
+function selectReviewTrade(positionId) {
+    _reviewPositionId = positionId;
+    document.getElementById('revPlaceholder').style.display = 'none';
+    document.getElementById('revActive').style.display = 'block';
+
+    // Highlight active sidebar item
+    document.querySelectorAll('.rev-trade-item').forEach(el => el.classList.remove('active'));
+    const items = document.querySelectorAll('.rev-trade-item');
+    items.forEach(el => {
+        if (el.getAttribute('onclick').includes(positionId)) el.classList.add('active');
+    });
+
+    const pos = QuantResearch.getPositions(currentPortfolioId).find(p => p.position_id === positionId);
+    if (!pos) return;
+
+    // -- Trade Header --
+    const pnl = pos.realized_pnl || 0;
+    const initRisk = pos.initial_risk_amount || 0;
+    const rMul = initRisk > 0 ? (pnl / initRisk).toFixed(2) : '0.00';
+    const holdDays = Math.max(0, Math.round((new Date(pos.updated_at) - new Date(pos.entry_date || pos.created_at)) / 86400000));
+    const pnlColor = pnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+
+    document.getElementById('revTradeHeader').innerHTML = `
+        <span class="rev-header-sym">${pos.symbol}</span>
+        <span class="tag tag-${pos.strategy}">${pos.strategy.toUpperCase()}</span>
+        <span class="tag tag-${pos.side}">${pos.side.toUpperCase()}</span>
+        <span class="rev-header-pnl" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${pnl.toLocaleString('en-IN')} (${rMul}R)</span>
+        <span class="rev-header-detail">${holdDays}d hold &middot; ${pos.quantity} shares &middot; Entry \u20b9${pos.entry_price.toLocaleString('en-IN')}</span>
+    `;
+
+    // -- Thesis vs Reality (Freeze 4: Snapshot ONLY) --
+    const snapshot = pos.snapshot_id ? _findSnapshot(pos.symbol, pos.snapshot_id) : null;
+    renderThesisVsReality(pos, snapshot);
+
+    // -- Timeline + Journal Merge (Freeze 5: DESC, Timeline > Journal) --
+    renderMergedTimeline(pos);
+
+    // -- Load existing review data --
+    loadReviewForm(positionId, pos);
+}
+
+function _findSnapshot(symbol, snapshotId) {
+    const snapshots = QuantResearch.getSnapshots(symbol);
+    if (!snapshots || snapshots.length === 0) return null;
+    return snapshots.find(s => s.snapshot_id === snapshotId) || null;
+}
+
+function renderThesisVsReality(pos, snapshot) {
+    const fmt = v => v ? '\u20b9' + v.toLocaleString('en-IN') : '\u2014';
+    const lastExit = pos.exits && pos.exits.length > 0 ? pos.exits[pos.exits.length - 1].price : pos.entry_price;
+
+    let thesisHTML = '';
+    if (snapshot) {
+        thesisHTML = `
+            <div class="rev-col-header thesis">Original Thesis (Snapshot)</div>
+            <div class="rev-comp-row"><span class="rev-comp-label">Entry Range</span><span class="rev-comp-value">${fmt(snapshot.entry_range.low)} - ${fmt(snapshot.entry_range.high)}</span></div>
+            <div class="rev-comp-row"><span class="rev-comp-label">Stop Loss</span><span class="rev-comp-value">${fmt(snapshot.stop_loss)}</span></div>
+            <div class="rev-comp-row"><span class="rev-comp-label">Targets</span><span class="rev-comp-value">${snapshot.targets.map(fmt).join(', ') || '\u2014'}</span></div>
+            <div class="rev-comp-row"><span class="rev-comp-label">R:R Ratio</span><span class="rev-comp-value">${snapshot.risk_reward_ratio || '\u2014'}</span></div>
+            <div class="rev-comp-row"><span class="rev-comp-label">Confidence</span><span class="rev-comp-value">${snapshot.confidence_scores.total || '\u2014'}%</span></div>
+        `;
+    } else {
+        thesisHTML = `
+            <div class="rev-col-header thesis">Original Thesis</div>
+            <div class="rev-tl-empty">No Research Snapshot linked to this trade.</div>
+        `;
+    }
+
+    const realityHTML = `
+        <div class="rev-col-header reality">Actual Execution</div>
+        <div class="rev-comp-row"><span class="rev-comp-label">Entry Price</span><span class="rev-comp-value">${fmt(pos.entry_price)}</span></div>
+        <div class="rev-comp-row"><span class="rev-comp-label">Stop Loss</span><span class="rev-comp-value">${fmt(pos.stop_loss)}</span></div>
+        <div class="rev-comp-row"><span class="rev-comp-label">Exit Price</span><span class="rev-comp-value">${fmt(lastExit)}</span></div>
+        <div class="rev-comp-row"><span class="rev-comp-label">Realized P&L</span><span class="rev-comp-value" style="color:${pos.realized_pnl >= 0 ? 'var(--pos)' : 'var(--neg)'}">${(pos.realized_pnl >= 0 ? '+' : '') + pos.realized_pnl.toLocaleString('en-IN')}</span></div>
+        <div class="rev-comp-row"><span class="rev-comp-label">Initial Risk</span><span class="rev-comp-value">${fmt(pos.initial_risk_amount)}</span></div>
+    `;
+
+    document.getElementById('revComparison').innerHTML = `<div>${thesisHTML}</div><div>${realityHTML}</div>`;
+}
+
+function renderMergedTimeline(pos) {
+    // Fetch timeline events for the symbol
+    const timelineEvents = QuantResearch.TimelineRepository.getEvents(pos.symbol).map(e => ({
+        type: 'event',
+        timestamp: e.timestamp,
+        text: _tlEventLabel(e.event_type, pos.symbol, e.metadata),
+        icon: _tlEventIcon(e.event_type),
+        priority: 1,
+        id: e.event_id,
+    }));
+
+    // Fetch journal entries for the symbol
+    const journalEntries = QuantResearch.JournalRepository.getEntries(pos.symbol).map(j => ({
+        type: 'journal',
+        timestamp: j.created_at,
+        text: j.text || '(no text)',
+        icon: _tlIconSvg('journal'),
+        priority: 2, // lower priority (Timeline > Journal for tie-break)
+        id: j.id,
+    }));
+
+    // Merge and sort: timestamp DESC, then priority ASC (Timeline first)
+    const merged = [...timelineEvents, ...journalEntries]
+        .sort((a, b) => {
+            const tDiff = new Date(b.timestamp) - new Date(a.timestamp);
+            if (tDiff !== 0) return tDiff;
+            if (a.priority !== b.priority) return a.priority - b.priority;
+            return (a.id || '').localeCompare(b.id || '');
+        });
+
+    const container = document.getElementById('revTimeline');
+    if (merged.length === 0) {
+        container.innerHTML = '<div class="rev-tl-empty">No events or journal entries for this symbol.</div>';
+        return;
+    }
+
+    container.innerHTML = merged.slice(0, 30).map(item => {
+        const time = new Date(item.timestamp).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const iconClass = item.type === 'event' ? 'event' : 'journal';
+        return `<div class="rev-tl-item">
+            <div class="rev-tl-icon ${iconClass}">${item.icon}</div>
+            <div class="rev-tl-body">
+                <div class="rev-tl-text">${item.text}</div>
+                <div class="rev-tl-time">${time}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Lucide SVG glyphs for the timeline (no emoji \u2014 one line icon set).
+function _svg(paths) {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+function _tlIconSvg(kind) {
+    const g = {
+        'up': '<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+        'door': '<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+        'shield': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+        'target': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+        'refresh': '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+        'octagon': '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+        'book': '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+        'check': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+        'journal': '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
+        'clipboard': '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+    };
+    return _svg(g[kind] || g['clipboard']);
+}
+function _tlEventIcon(type) {
+    const kinds = {
+        'POSITION_OPENED': 'up', 'POSITION_CLOSED': 'door',
+        'STOP_UPDATED': 'shield', 'TARGET_UPDATED': 'target',
+        'POSITION_SCALED': 'up', 'PARTIAL_EXIT': 'refresh',
+        'TARGET_HIT': 'target', 'STOP_HIT': 'octagon',
+        'REVIEW_CREATED': 'book', 'REVIEW_COMPLETED': 'check',
+    };
+    return _tlIconSvg(kinds[type] || 'clipboard');
+}
+
+function _tlEventLabel(type, symbol, metadata) {
+    const m = metadata || {};
+    const labels = {
+        'POSITION_OPENED': `Opened position: ${symbol}`,
+        'POSITION_CLOSED': `Closed: ${symbol} (${m.reason || 'manual'})`,
+        'STOP_UPDATED': `Stop updated \u2192 \u20b9${m.new_stop_loss || '\u2014'}`,
+        'TARGET_UPDATED': `Targets updated`,
+        'POSITION_SCALED': `Scaled +${m.additional_quantity || 0} shares`,
+        'PARTIAL_EXIT': `Partial exit -${m.exit_quantity || 0} shares`,
+        'TARGET_HIT': `Target hit`,
+        'STOP_HIT': `Stop hit`,
+        'REVIEW_CREATED': `Review started`,
+        'REVIEW_COMPLETED': `Review completed (v${m.version || '?'})`,
+    };
+    return labels[type] || `${type}`;
+}
+
+function loadReviewForm(positionId, pos) {
+    const review = QuantResearch.ReviewRepository.getLatestReview(positionId);
+    const status = review ? review.status : 'open';
+
+    // Populate fields
+    document.getElementById('revWell').value = review ? review.reflection.what_went_well : '';
+    document.getElementById('revWrong').value = review ? review.reflection.what_went_wrong : '';
+    document.getElementById('revLesson').value = review ? review.reflection.lesson_learned : '';
+    document.getElementById('revAction').value = review ? review.reflection.action_item : '';
+
+    // Update status badge
+    const badge = document.getElementById('revStatusBadge');
+    badge.textContent = status.replace('_', ' ');
+    badge.className = `rev-status-badge ${status}`;
+
+    // Disable fields if completed (user can still create new version via Complete button)
+    const isCompleted = status === 'completed';
+    document.getElementById('revWell').disabled = isCompleted;
+    document.getElementById('revWrong').disabled = isCompleted;
+    document.getElementById('revLesson').disabled = isCompleted;
+    document.getElementById('revAction').disabled = isCompleted;
+    document.getElementById('revSaveDraft').disabled = isCompleted;
+    document.getElementById('revComplete').textContent = isCompleted ? 'Add New Version' : 'Mark Completed';
+}
+
+function _getReviewParams(status) {
+    const pos = QuantResearch.getPositions(currentPortfolioId).find(p => p.position_id === _reviewPositionId);
+    if (!pos) return null;
+    return {
+        position_id: _reviewPositionId,
+        portfolio_id: currentPortfolioId,
+        snapshot_id: pos.snapshot_id || null,
+        symbol: pos.symbol,
+        strategy: pos.strategy,
+        status: status,
+        reflection: {
+            what_went_well: document.getElementById('revWell').value.trim(),
+            what_went_wrong: document.getElementById('revWrong').value.trim(),
+            lesson_learned: document.getElementById('revLesson').value.trim(),
+            action_item: document.getElementById('revAction').value.trim(),
+        }
+    };
+}
+
+function saveReviewDraft() {
+    const params = _getReviewParams('in_progress');
+    if (!params) return;
+    const result = QuantResearch.ReviewRepository.saveReview(params);
+    if (result.success) {
+        showToast('Draft saved (v' + result.review.version + ')', 'success');
+        loadReviewMode(); // refresh sidebar stats
+        selectReviewTrade(_reviewPositionId); // refresh form state
+    } else {
+        showToast('Save failed: ' + result.error, 'error');
+    }
+}
+
+function completeReview() {
+    const existing = QuantResearch.ReviewRepository.getLatestReview(_reviewPositionId);
+    const isLocked = document.getElementById('revWell').disabled;
+    console.log("[DEBUG PC] completeReview: existingStatus=" + (existing ? existing.status : "null") + ", isLocked=" + isLocked);
+
+    if (existing && existing.status === 'completed' && isLocked) {
+        // For new version on completed review, re-enable fields first
+        document.getElementById('revWell').disabled = false;
+        document.getElementById('revWrong').disabled = false;
+        document.getElementById('revLesson').disabled = false;
+        document.getElementById('revAction').disabled = false;
+        document.getElementById('revSaveDraft').disabled = false;
+        document.getElementById('revComplete').textContent = 'Mark Completed';
+        const badge = document.getElementById('revStatusBadge');
+        badge.textContent = 'editing';
+        badge.className = 'rev-status-badge in_progress';
+        return; // Let user edit, then click again
+    }
+
+    const params = _getReviewParams('completed');
+    if (!params) return;
+    const result = QuantResearch.ReviewRepository.saveReview(params);
+    if (result.success) {
+        showToast('Review completed (v' + result.review.version + ')', 'success');
+        loadReviewMode();
+        selectReviewTrade(_reviewPositionId);
+    } else {
+        showToast('Complete failed: ' + result.error, 'error');
+    }
+}
+
+// ── D1-C: Add Position Form ──────────────────────────────────────────
+function toggleAddPositionForm() {
+    const form = document.getElementById('addPosForm');
+    const isVisible = form.style.display !== 'none';
+    form.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+        document.getElementById('addPosDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('addPosSymbol').focus();
+    }
+}
+
+let _addPosSuggestTimer = null;
+function onAddPosSymbolInput(el) {
+    clearTimeout(_addPosSuggestTimer);
+    const q = el.value.trim().toUpperCase();
+    const suggest = document.getElementById('addPosSuggest');
+    if (q.length < 2) { suggest.innerHTML = ''; return; }
+    _addPosSuggestTimer = setTimeout(async () => {
+        try {
+            const res = await fetch('/api/slim-results');
+            const data = await res.json();
+            const matches = (data.results || [])
+                .filter(s => s.symbol.toUpperCase().includes(q))
+                .slice(0, 8);
+            if (!matches.length) { suggest.innerHTML = ''; return; }
+            suggest.innerHTML = matches.map(s => `
+                <div class="poc-suggest-item" onclick="selectAddPosSymbol('${s.symbol}', ${s.target_price || 0}, ${s.stop_loss || 0})">
+                    <span class="poc-suggest-sym">${s.symbol}</span>
+                    <span class="poc-suggest-score">${s.score || 0}/100</span>
+                </div>
+            `).join('');
+        } catch (e) { suggest.innerHTML = ''; }
+    }, 250);
+}
+
+function selectAddPosSymbol(sym, target, sl) {
+    document.getElementById('addPosSymbol').value = sym;
+    document.getElementById('addPosSuggest').innerHTML = '';
+    // Auto-populate resolved targets from API
+    fetch(`/api/stock/${encodeURIComponent(sym)}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.targets) {
+                if (data.targets.sl) document.getElementById('addPosSL').value = data.targets.sl;
+                if (data.targets.t1) document.getElementById('addPosTarget').value = data.targets.t1;
+            }
+            if (data.price) document.getElementById('addPosPrice').value = data.price;
+        })
+        .catch(() => {
+            if (sl) document.getElementById('addPosSL').value = sl;
+            if (target) document.getElementById('addPosTarget').value = target;
+        });
+}
+
+async function submitAddPosition() {
+    const errEl = document.getElementById('addPosError');
+    errEl.textContent = '';
+    const symbol = document.getElementById('addPosSymbol').value.trim();
+    const qty = parseInt(document.getElementById('addPosQty').value);
+    const price = parseFloat(document.getElementById('addPosPrice').value);
+    const date = document.getElementById('addPosDate').value;
+    const sl = document.getElementById('addPosSL').value ? parseFloat(document.getElementById('addPosSL').value) : null;
+    const target = document.getElementById('addPosTarget').value ? parseFloat(document.getElementById('addPosTarget').value) : null;
+    const notes = document.getElementById('addPosNotes').value.trim();
+
+    if (!symbol) { errEl.textContent = 'Symbol is required'; return; }
+    if (!qty || qty <= 0) { errEl.textContent = 'Quantity must be > 0'; return; }
+    if (!price || price <= 0) { errEl.textContent = 'Buy Price must be > 0'; return; }
+
+    const btn = document.getElementById('addPosSubmit');
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    try {
+        const res = await fetch(`/api/portfolios/${currentPortfolioId}/positions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol, quantity: qty, buy_price: price, buy_date: date, stop_loss: sl, target: target, notes: notes })
+        });
+        const result = await res.json();
+        if (res.ok) {
+            showToast(`${symbol} added to portfolio`, 'success');
+            toggleAddPositionForm();
+            document.getElementById('addPosSymbol').value = '';
+            document.getElementById('addPosQty').value = '1';
+            document.getElementById('addPosPrice').value = '';
+            document.getElementById('addPosSL').value = '';
+            document.getElementById('addPosTarget').value = '';
+            document.getElementById('addPosNotes').value = '';
+            loadMonitor();
+        } else {
+            errEl.textContent = result.error || 'Failed to add position';
+        }
+    } catch (e) {
+        errEl.textContent = 'Network error: ' + e.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Position';
+    }
+}
+
+// ── Theme-aware chart re-render ───────────────────────────────────────
+// Chart.js bakes colors at render time, so a live chart keeps its old
+// palette when the user toggles light/dark. Watch [data-theme] on <html>
+// and re-render whichever charts are currently instantiated so both themes
+// stay correct without a page reload. (Reads existing data — frozen-safe.)
+let _pocThemeAttr = document.documentElement.getAttribute('data-theme') || 'dark';
+function _rerenderLiveCharts() {
+    if (!currentPortfolioId) return;
+    // Monitor allocation charts
+    if (sectorChartInstance || strategyChartInstance) {
+        const summary = QuantResearch.getPortfolioSummary(currentPortfolioId);
+        if (summary) renderAllocationCharts(summary);
+    }
+    // Analyze charts
+    if (_equityCurveChart || _drawdownChart || _strategyBarChart) {
+        const perf = QuantResearch.getPerformance(currentPortfolioId);
+        if (perf && perf.total_trades > 0) {
+            destroyAnalyzeCharts();
+            renderEquityCurve(perf);
+            renderDrawdownChart(perf);
+            renderAnalyzeStrategyChart(perf);
+        }
+    }
+}
+try {
+    const _themeObserver = new MutationObserver(() => {
+        const next = document.documentElement.getAttribute('data-theme') || 'dark';
+        if (next !== _pocThemeAttr) { _pocThemeAttr = next; _rerenderLiveCharts(); }
+    });
+    _themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+} catch (e) { /* MutationObserver unavailable — charts still correct on next render */ }
+
+// ── Boot ──────────────────────────────────────────────────────────────
+initPortfolioCenter();
+</script>
+{% endblock %}

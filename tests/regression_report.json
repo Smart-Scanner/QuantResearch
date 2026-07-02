@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-06-07 18:03:19",
+  "base_url": "http://localhost:5050",
+  "passed": 5,
+  "failed": 2,
+  "results": [
+    {
+      "name": "Dashboard API",
+      "pass": true,
+      "ms": 2251
+    },
+    {
+      "name": "Status API",
+      "pass": true,
+      "ms": 2069
+    },
+    {
+      "name": "Search List API",
+      "pass": true,
+      "ms": 2080
+    },
+    {
+      "name": "Results API (limit=500)",
+      "pass": false,
+      "ms": 2112,
+      "error": "Expected list response"
+    },
+    {
+      "name": "Health Check",
+      "pass": false,
+      "ms": 2047,
+      "error": "Too slow: 2047ms > 2000ms"
+    },
+    {
+      "name": "Top Picks HTML",
+      "pass": true,
+      "ms": 4109
+    },
+    {
+      "name": "Stock Detail HTML",
+      "pass": true,
+      "ms": 4124
+    }
+  ]
+}

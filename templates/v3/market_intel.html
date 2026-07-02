@@ -1,0 +1,401 @@
+{% extends "_app_base.html" %}
+{% set active_page = "market_intel" %}
+{% block title %}Market Intelligence{% endblock %}
+{% block content %}
+<style>
+/* Market Intelligence — reuses v3.css tokens (--accent, --pos/--neg/--warn,
+   --border-hairline, --surface, --radius). Number-is-hero, hairline panels,
+   no gradients/glow/lift. */
+.mi-page { max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+
+.mi-header { margin-bottom: 24px; }
+.mi-title { font-size: 22px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; }
+.mi-subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+.mi-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 900px) { .mi-grid { grid-template-columns: 1fr 1fr; } }
+
+.mi-widget {
+    background: var(--surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+    padding: 16px;
+}
+.mi-widget.full-width { grid-column: 1 / -1; }
+.mi-widget-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 12px; margin-bottom: 14px;
+    padding-bottom: 12px; border-bottom: 1px solid var(--border-hairline);
+}
+.mi-widget-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+}
+.mi-widget-title svg { color: var(--text-tertiary); flex-shrink: 0; }
+.mi-widget-meta {
+    font-size: 10px; color: var(--text-tertiary); text-align: right;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    line-height: 1.5; white-space: nowrap;
+}
+.mi-widget-meta span { display: block; }
+
+.mi-error {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+    padding: 24px; color: var(--neg); font-size: 12px;
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+}
+.mi-error svg { flex-shrink: 0; }
+.mi-empty { text-align: center; padding: 24px 16px; color: var(--text-tertiary); font-size: 12px; }
+
+/* Skeletons — content-shaped (mirrors .qr-skel shimmer) */
+.mi-skel { position: relative; overflow: hidden; background: var(--surface-raised); border-radius: var(--radius-xs); }
+.mi-skel::after {
+    content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--bg-card-hover), transparent);
+    animation: mi-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes mi-shimmer { 100% { transform: translateX(100%); } }
+.mi-skel-line { height: 12px; margin: 10px 0; }
+.mi-skel-kpi { height: 62px; }
+.mi-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .mi-skel::after { animation: none; } }
+
+/* Colored impact / quadrant dots (data-only semantics) */
+.mi-dot { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; }
+
+/* ── Sector Rotation ─────────────────────────────────────── */
+/* Body scrolls horizontally when the table exceeds the panel (mobile). */
+#sector-body { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.sr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sr-table th {
+    text-align: left; padding: 6px 8px; color: var(--text-tertiary);
+    font-weight: 500; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.sr-table th.num, .sr-table td.num { text-align: right; }
+.sr-table td { padding: 7px 8px; border-bottom: 1px solid var(--border-hairline); color: var(--text-secondary); }
+.sr-table tr:last-child td { border-bottom: none; }
+.sr-table tbody tr { transition: background 130ms cubic-bezier(0.2,0,0,1); }
+.sr-table tbody tr:hover { background: var(--surface-raised); }
+.sr-name { display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 500; }
+.sr-quad-label { font-size: 11px; color: var(--text-secondary); }
+.sr-num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.sr-leading  { background: var(--pos); }
+.sr-improving { background: var(--accent); }
+.sr-weakening { background: var(--warn); }
+.sr-lagging  { background: var(--neg); }
+.sr-unknown  { background: var(--text-tertiary); }
+
+/* ── Macro Summary (number-is-hero) ──────────────────────── */
+.macro-regime {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: var(--radius-xs); font-size: 11px;
+    font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase;
+    margin-bottom: 14px; border: 1px solid var(--border-hairline);
+    color: var(--text-secondary);
+}
+.macro-regime .mi-dot { width: 6px; height: 6px; }
+.macro-regime.bullish .mi-dot, .macro-regime.risk-on .mi-dot { background: var(--pos); }
+.macro-regime.bearish .mi-dot, .macro-regime.risk-off .mi-dot { background: var(--neg); }
+.macro-regime.sideways .mi-dot, .macro-regime.neutral .mi-dot, .macro-regime.unknown .mi-dot { background: var(--text-tertiary); }
+.macro-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.macro-kpi {
+    border: 1px solid var(--border-hairline); border-radius: var(--radius-sm);
+    padding: 10px 12px;
+}
+.macro-kpi-label {
+    font-size: 10px; color: var(--text-tertiary); margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.macro-kpi-value {
+    font-size: 20px; font-weight: 600; color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    line-height: 1.1; letter-spacing: -0.01em;
+}
+.macro-kpi-change {
+    font-size: 11px; margin-top: 4px; min-height: 14px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; gap: 4px;
+}
+.macro-kpi-change.pos { color: var(--pos); }
+.macro-kpi-change.neg { color: var(--neg); }
+
+/* ── Macro Events Calendar ───────────────────────────────── */
+.me-list { list-style: none; padding: 0; margin: 0; }
+.me-item {
+    display: grid; grid-template-columns: 7px 118px 1fr auto;
+    align-items: center; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid var(--border-hairline); font-size: 12px;
+}
+.me-item:last-child { border-bottom: none; }
+.me-impact-hi { background: var(--neg); }
+.me-impact-med { background: var(--warn); }
+.me-impact-low { background: var(--text-tertiary); }
+.me-when {
+    color: var(--text-tertiary); font-size: 11px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.me-title { color: var(--text-primary); }
+.me-cc {
+    color: var(--text-tertiary); font-size: 10px; letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', monospace; text-align: right;
+}
+.me-forecast {
+    color: var(--text-secondary); font-size: 11px;
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+}
+.me-foot {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-hairline);
+    font-size: 11px; color: var(--text-tertiary); display: flex; gap: 16px; align-items: center;
+}
+.me-foot .mi-dot { display: inline-block; margin-right: 5px; }
+.me-legend { display: flex; align-items: center; gap: 4px; }
+
+@media (max-width: 768px) {
+    .mi-page { padding: 0 12px; }
+    .mi-title { font-size: 19px; }
+    .mi-widget-header { flex-wrap: wrap; gap: 6px; }
+    /* Keep numeric columns legible; scroll the table instead of crushing it. */
+    .sr-table { font-size: 11px; min-width: 420px; }
+    .sr-table th, .sr-table td { padding: 5px 6px; white-space: nowrap; }
+    .macro-kpi-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+    .me-item { grid-template-columns: 7px 1fr auto; }
+    .me-when { grid-column: 2; font-size: 10px; }
+    .me-forecast { display: none; }
+}
+</style>
+
+<div class="mi-page">
+    <div class="mi-header">
+        <div class="mi-title">Market Intelligence</div>
+        <div class="mi-subtitle">Sector rotation, macro indicators, and upcoming economic events</div>
+    </div>
+
+    <div class="mi-grid">
+        <!-- Sector Rotation Widget -->
+        <div class="mi-widget" id="sector">
+            <div class="mi-widget-header">
+                <div class="mi-widget-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Sector Rotation (RRG)</div>
+                <div class="mi-widget-meta" id="sector-meta"></div>
+            </div>
+            <div id="sector-body">
+                <div class="mi-skel mi-skel-line" style="width:60%"></div>
+                <div class="mi-skel mi-skel-line" style="width:90%"></div>
+                <div class="mi-skel mi-skel-line" style="width:80%"></div>
+                <div class="mi-skel mi-skel-line" style="width:85%"></div>
+            </div>
+        </div>
+
+        <!-- Macro Summary Widget -->
+        <div class="mi-widget" id="macro-summary">
+            <div class="mi-widget-header">
+                <div class="mi-widget-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Macro Summary</div>
+                <div class="mi-widget-meta" id="macro-meta"></div>
+            </div>
+            <div id="macro-body">
+                <div class="mi-skel mi-skel-line" style="width:30%;height:18px;margin-bottom:14px"></div>
+                <div class="mi-skel-grid">
+                    <div class="mi-skel mi-skel-kpi"></div><div class="mi-skel mi-skel-kpi"></div>
+                    <div class="mi-skel mi-skel-kpi"></div><div class="mi-skel mi-skel-kpi"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Macro Events Widget -->
+        <div class="mi-widget full-width" id="earnings">
+            <div class="mi-widget-header">
+                <div class="mi-widget-title"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Macro Events Calendar</div>
+                <div class="mi-widget-meta" id="events-meta"></div>
+            </div>
+            <div id="events-body">
+                <div class="mi-skel mi-skel-line" style="width:70%"></div>
+                <div class="mi-skel mi-skel-line" style="width:55%"></div>
+                <div class="mi-skel mi-skel-line" style="width:65%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
+
+    function setMeta(id, source) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = `<span>${source}</span><span>as of ${now} IST</span>`;
+    }
+
+    const ALERT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    }
+    // Strip trailing emoji / non-ASCII decoration coming from the API (e.g. quadrant labels ship with a colored circle glyph).
+    function cleanText(s) { return String(s || '').replace(/[^\x00-\x7F]/g, '').trim(); }
+
+    function renderError(containerId, msg) {
+        document.getElementById(containerId).innerHTML = `<div class="mi-error">${ALERT_ICON}<span>${esc(msg)}</span></div>`;
+    }
+    function renderEmpty(containerId, msg) {
+        document.getElementById(containerId).innerHTML = `<div class="mi-empty">${esc(msg)}</div>`;
+    }
+
+    function fmtNum(v) {
+        if (v == null) return '--';
+        const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/,/g, ''));
+        if (!isFinite(n)) return esc(v);
+        const abs = Math.abs(n);
+        // Compact very large notionals so the number stays the hero.
+        if (abs >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e7) return (n / 1e7).toFixed(2) + 'Cr';
+        return n.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    }
+
+    // ── Sector Rotation (isolated) ─────────────────────────────
+    fetch('/api/sector-rotation')
+        .then(r => r.json())
+        .then(data => {
+            setMeta('sector-meta', '/api/sector-rotation');
+            if (data.error) { renderError('sector-body', 'Sector data unavailable: ' + data.error); return; }
+            const sectors = data.sectors;
+            if (!sectors || (Array.isArray(sectors) && sectors.length === 0) || (typeof sectors === 'object' && Object.keys(sectors).length === 0)) {
+                renderEmpty('sector-body', 'No sector rotation data yet. It appears after the next scan.');
+                return;
+            }
+            const list = Array.isArray(sectors) ? sectors : Object.entries(sectors).map(([k, v]) => ({ name: k, ...v }));
+            const quadClass = { LEADING: 'sr-leading', IMPROVING: 'sr-improving', WEAKENING: 'sr-weakening', LAGGING: 'sr-lagging' };
+            // Rank by RS momentum so leaders sit at the top.
+            list.sort((a, b) => (b.rs_momentum || 0) - (a.rs_momentum || 0));
+            let html = `<table class="sr-table"><thead><tr>
+                <th>Sector</th><th>Quadrant</th>
+                <th class="num">RS Ratio</th><th class="num">RS Mom</th><th class="num">1W %</th>
+            </tr></thead><tbody>`;
+            list.forEach(s => {
+                const q = cleanText(s.quadrant) || 'Unknown';
+                const qc = quadClass[q.toUpperCase()] || 'sr-unknown';
+                const label = q.charAt(0) + q.slice(1).toLowerCase();
+                const wc = s.week_change;
+                const wcColor = wc == null ? 'color:var(--text-tertiary)' : (wc > 0 ? 'color:var(--pos)' : (wc < 0 ? 'color:var(--neg)' : 'color:var(--text-tertiary)'));
+                const wcStr = wc == null ? '--' : (wc > 0 ? '+' : '') + wc.toFixed(2) + '%';
+                html += `<tr>
+                    <td><span class="sr-name"><span class="mi-dot ${qc}"></span>${esc(s.name || s.sector || '--')}</span></td>
+                    <td><span class="sr-quad-label">${esc(label)}</span></td>
+                    <td class="num"><span class="sr-num">${s.rs_ratio != null ? s.rs_ratio.toFixed(2) : '--'}</span></td>
+                    <td class="num"><span class="sr-num">${s.rs_momentum != null ? s.rs_momentum.toFixed(2) : '--'}</span></td>
+                    <td class="num"><span class="sr-num" style="${wcColor}">${wcStr}</span></td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            document.getElementById('sector-body').innerHTML = html;
+        })
+        .catch(() => renderError('sector-body', 'Failed to load sector data'));
+
+    // ── Macro Summary (isolated) ───────────────────────────────
+    fetch('/api/macro')
+        .then(r => r.json())
+        .then(data => {
+            setMeta('macro-meta', '/api/macro');
+            if (data.error) { renderError('macro-body', 'Macro data unavailable: ' + data.error); return; }
+            const regime = data.regime || 'unknown';
+            const rc = regime.toLowerCase().replace(/[^a-z-]/g, '');
+            let html = `<div class="macro-regime ${rc}"><span class="mi-dot"></span>${esc(regime)}</div>`;
+
+            // Merge world + macro; each entry may be a scalar or {value, change, date}.
+            const merged = { ...(data.world || {}), ...(data.macro || {}) };
+            const kpis = [];
+            Object.entries(merged).forEach(([k, v]) => {
+                if (v == null) return;
+                if (typeof v === 'object') {
+                    const val = v.value != null ? v.value : (v.last != null ? v.last : null);
+                    if (val == null) return;
+                    kpis.push({ label: k.replace(/_/g, ' '), value: val, change: (typeof v.change === 'number' ? v.change : null) });
+                } else {
+                    kpis.push({ label: k.replace(/_/g, ' '), value: v, change: null });
+                }
+            });
+
+            if (kpis.length === 0) {
+                html += '<div class="mi-empty">No macro indicators in this snapshot. Data refreshes automatically.</div>';
+            } else {
+                html += '<div class="macro-kpi-grid">';
+                kpis.forEach(kpi => {
+                    let chg = '';
+                    if (kpi.change != null && kpi.change !== 0) {
+                        const cls = kpi.change > 0 ? 'pos' : 'neg';
+                        const arrow = kpi.change > 0 ? '▲' : '▼';
+                        chg = `<div class="macro-kpi-change ${cls}">${arrow} ${Math.abs(kpi.change).toFixed(2)}</div>`;
+                    } else if (kpi.change === 0) {
+                        chg = `<div class="macro-kpi-change">— 0.00</div>`;
+                    } else {
+                        // No change datum — keep an empty row so KPI card heights align.
+                        chg = `<div class="macro-kpi-change"></div>`;
+                    }
+                    html += `<div class="macro-kpi">
+                        <div class="macro-kpi-label" title="${esc(kpi.label)}">${esc(kpi.label)}</div>
+                        <div class="macro-kpi-value">${fmtNum(kpi.value)}</div>
+                        ${chg}
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            document.getElementById('macro-body').innerHTML = html;
+        })
+        .catch(() => renderError('macro-body', 'Failed to load macro data'));
+
+    // ── Macro Events (isolated) ────────────────────────────────
+    fetch('/api/macro-events')
+        .then(r => r.json())
+        .then(data => {
+            setMeta('events-meta', '/api/macro-events');
+            if (data.error) { renderError('events-body', 'Events data unavailable: ' + data.error); return; }
+            const events = data.events || [];
+            if (events.length === 0) {
+                renderEmpty('events-body', 'No upcoming macro events. The calendar refreshes automatically.');
+                return;
+            }
+            const impactClass = { high: 'me-impact-hi', medium: 'me-impact-med', low: 'me-impact-low' };
+            let html = '<ul class="me-list">';
+            events.slice(0, 20).forEach(ev => {
+                const impact = (ev.impact || 'low').toLowerCase();
+                const dotCls = impactClass[impact] || 'me-impact-low';
+                // Prefer explicit clock time; else derive from ISO date; else "All day".
+                let when = (ev.time && !/^-+:?-*$/.test(ev.time)) ? ev.time : '';
+                if (!when && ev.date) {
+                    const d = new Date(ev.date);
+                    if (!isNaN(d)) {
+                        when = d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+                    }
+                }
+                if (!when) when = 'All day';
+                const title = ev.title || ev.event || '--';
+                const cc = cleanText(ev.country || ev.currency || '');
+                const forecast = ev.forecast ? esc(ev.forecast) : '';
+                html += `<li class="me-item">
+                    <span class="mi-dot ${dotCls}"></span>
+                    <span class="me-when">${esc(when)}</span>
+                    <span class="me-title">${esc(title)}</span>
+                    <span class="me-forecast">${forecast}</span>
+                </li>`;
+            });
+            html += '</ul>';
+            html += `<div class="me-foot">
+                <span class="me-legend"><span class="mi-dot me-impact-hi"></span>High</span>
+                <span class="me-legend"><span class="mi-dot me-impact-med"></span>Medium</span>
+                <span class="me-legend"><span class="mi-dot me-impact-low"></span>Low</span>
+                ${data.regime ? `<span style="margin-left:auto">Regime: ${esc(data.regime)}</span>` : ''}
+            </div>`;
+            document.getElementById('events-body').innerHTML = html;
+        })
+        .catch(() => renderError('events-body', 'Failed to load events data'));
+
+    // ── Scroll to anchor on load ───────────────────────────────
+    if (window.location.hash) {
+        setTimeout(() => {
+            const target = document.querySelector(window.location.hash);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 500);
+    }
+})();
+</script>
+{% endblock %}

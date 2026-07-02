@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QuantResearch{% endblock %}</title>
+    <script src="{{ url_for('static', filename='js/quantresearch-core.js') }}?v=r4"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/v3.css') }}?v=r5">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        // Theme + translation shim so embedded pages (e.g. mission_control?embed=1) match the app.
+        (function () { var t = QuantResearch.SystemRepository.getPreference('theme', null) || 'dark'; document.documentElement.setAttribute('data-theme', t); })();
+        window._t = function (k, d) { try { return QuantResearch.Terminology.translate(k, d); } catch (e) { return d || k; } };
+    </script>
+    {% block head %}{% endblock %}
+    <style>
+        /* BARE embed shell — no app nav/topbar/status-strip. Content flows and scrolls inside
+           the host iframe (overrides v3.css's overflow:hidden/height:100vh on body). */
+        html { height: auto; }
+        body { margin: 0; padding: 14px 16px; background: var(--canvas); color: var(--text-primary);
+               overflow-x: hidden; overflow-y: auto; height: auto; min-height: 100vh; }
+    </style>
+</head>
+<body data-embed="1">
+    {% block content %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

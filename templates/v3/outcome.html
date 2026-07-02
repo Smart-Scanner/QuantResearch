@@ -1,0 +1,471 @@
+{% extends "_app_base.html" %}
+{% set active_page = "outcome" %}
+{% block title %}Comparison{% endblock %}
+{% block content %}
+<div class="v3-page-header">
+    <div class="v3-page-title">Comparison</div>
+    <div class="v3-page-subtitle">Side-by-side engine performance, data coverage, and factor attribution &mdash; across all engines</div>
+</div>
+
+<div id="cmpRoot">
+    <!-- Skeleton (content-shaped) -->
+    <div id="cmpSkeleton" class="cmp-grid">
+        <div class="cmp-col">
+            <div class="cmp-sk cmp-sk-head"></div>
+            <div class="cmp-sk-block">
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+            </div>
+            <div class="cmp-sk-block">
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+            </div>
+        </div>
+        <div class="cmp-col">
+            <div class="cmp-sk cmp-sk-head"></div>
+            <div class="cmp-sk-block">
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+            </div>
+            <div class="cmp-sk-block">
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+                <div class="cmp-sk cmp-sk-row"></div><div class="cmp-sk cmp-sk-row"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cmpError" style="display:none"></div>
+    <div id="cmpContent" style="display:none"></div>
+</div>
+
+<style>
+/* ===== Comparison page (inline, page-scoped) ===== */
+
+/* Grid: one column per engine, works for 2 or 3+ */
+.cmp-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--cmp-cols, 2), minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+.cmp-col {
+    background: var(--surface);
+    border: 1px solid var(--border-hairline);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+/* Column header */
+.cmp-col-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-hairline);
+    background: var(--surface-raised);
+}
+.cmp-col-dot {
+    width: 8px; height: 8px; border-radius: var(--radius-full);
+    background: var(--accent); flex: 0 0 auto;
+}
+.cmp-col-title {
+    font-size: 16px; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.2px;
+}
+.cmp-col-id {
+    margin-left: auto; font-size: 11px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+/* Block (Performance / Coverage / Factors) inside a column */
+.cmp-block { padding: 6px 16px 14px; }
+.cmp-block + .cmp-block { border-top: 1px solid var(--border-hairline); }
+.cmp-block-title {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-tertiary);
+    padding: 12px 0 8px;
+}
+
+/* Number-is-hero metric row */
+.cmp-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; padding: 8px 0;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.cmp-row:last-child { border-bottom: none; }
+.cmp-row-label {
+    font-size: 12px; color: var(--text-secondary); font-weight: 400;
+}
+.cmp-row-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 18px; font-weight: 600; color: var(--text-primary);
+    text-align: right; white-space: nowrap;
+}
+.cmp-row-val.is-pos { color: var(--pos); }
+.cmp-row-val.is-neg { color: var(--neg); }
+.cmp-row-sub {
+    font-size: 11px; color: var(--text-tertiary);
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    margin-left: 6px;
+}
+
+/* Coverage progress */
+.cmp-cov-item { padding: 10px 0; }
+.cmp-cov-item:not(:last-child) { border-bottom: 1px solid var(--border-hairline); }
+.cmp-cov-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px; margin-bottom: 8px;
+}
+.cmp-cov-label { font-size: 12px; color: var(--text-secondary); }
+.cmp-cov-val {
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    text-align: right; white-space: nowrap;
+}
+.cmp-cov-track {
+    height: 5px; border-radius: var(--radius-full);
+    background: var(--border-hairline); overflow: hidden;
+}
+.cmp-cov-fill {
+    height: 100%; background: var(--accent); border-radius: var(--radius-full);
+    transition: width 130ms cubic-bezier(0.2,0,0,1);
+    min-width: 0;
+}
+
+/* Factor attribution bars */
+.cmp-fac-row {
+    display: grid; grid-template-columns: 84px 1fr auto auto;
+    align-items: center; gap: 10px; padding: 7px 0;
+    border-bottom: 1px solid var(--border-hairline);
+}
+.cmp-fac-row:last-child { border-bottom: none; }
+.cmp-fac-label { font-size: 11px; color: var(--text-secondary); }
+.cmp-fac-track {
+    position: relative; height: 10px;
+    background: var(--border-hairline); border-radius: var(--radius-xs);
+    overflow: hidden;
+}
+.cmp-fac-bar {
+    position: absolute; left: 0; height: 50%; border-radius: var(--radius-xs);
+    transition: width 130ms cubic-bezier(0.2,0,0,1);
+}
+.cmp-fac-bar.win { top: 0; background: var(--pos); }
+.cmp-fac-bar.lose { bottom: 0; background: var(--neg); }
+.cmp-fac-val {
+    font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums;
+    font-size: 11px; font-weight: 600; text-align: right; min-width: 34px;
+}
+.cmp-fac-val.win { color: var(--pos); }
+.cmp-fac-val.lose { color: var(--neg); }
+.cmp-fac-legend {
+    display: flex; gap: 14px; padding: 4px 0 8px;
+    font-size: 10px; color: var(--text-tertiary);
+}
+.cmp-fac-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cmp-fac-legend i {
+    width: 8px; height: 8px; border-radius: var(--radius-xs); display: inline-block;
+}
+
+.cmp-muted { color: var(--text-tertiary); }
+
+/* Coverage/error notice */
+.cmp-notice {
+    font-size: 11px; color: var(--text-tertiary);
+    padding: 8px 0 2px;
+}
+.cmp-error-box {
+    border: 1px solid var(--border-hairline); border-radius: var(--radius);
+    background: var(--surface); padding: 24px; text-align: center;
+}
+.cmp-error-box .msg { font-size: 14px; color: var(--text-primary); margin-bottom: 12px; }
+.cmp-retry {
+    font-size: 12px; font-weight: 500; color: var(--accent);
+    background: transparent; border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xs); padding: 6px 14px; cursor: pointer;
+    transition: background 130ms cubic-bezier(0.2,0,0,1);
+}
+.cmp-retry:hover { background: var(--surface-hover); }
+
+/* Skeleton — calm, content-shaped (flat tokens, no gradient/shimmer) */
+.cmp-sk {
+    background: var(--border-hairline);
+    border-radius: var(--radius-xs);
+    animation: cmpSkFade 1.4s cubic-bezier(0.2,0,0,1) infinite;
+}
+.cmp-sk-head { height: 44px; border-radius: 0; margin-bottom: 8px; }
+.cmp-sk-block { padding: 6px 16px 14px; }
+.cmp-sk-row { height: 22px; margin: 10px 0; }
+@keyframes cmpSkFade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cmp-sk { animation: none; }
+    .cmp-cov-fill, .cmp-fac-bar { transition: none; }
+}
+
+@media (max-width: 720px) {
+    .cmp-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script>
+(function () {
+    'use strict';
+
+    // ---- formatting helpers (centralized, tabular) ----
+    const DASH = '—';
+    function pct(v, dp, sign) {
+        if (v == null || isNaN(v)) return DASH;
+        dp = (dp == null) ? 2 : dp;
+        const s = (sign && v >= 0) ? '+' : '';
+        return s + Number(v).toFixed(dp) + '%';
+    }
+    function num(v, dp) {
+        if (v == null || isNaN(v)) return DASH;
+        return Number(v).toFixed(dp == null ? 2 : dp);
+    }
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
+
+    // ---- performance metric definitions (number-is-hero rows) ----
+    // dir: +1 => higher is better, -1 => lower is better (for highlighting)
+    const METRICS = [
+        { key: 'win_rate',        label: 'Win rate',         dir: 1,  fmt: s => pct(s.win_rate, 1) },
+        { key: 'avg_return_pct',  label: 'Avg return',       dir: 1,  fmt: s => pct(s.avg_return_pct, 2, true), signed: true },
+        { key: 'profit_factor',   label: 'Profit factor',    dir: 1,  fmt: s => (s.profit_factor == null || s.profit_factor === 0) ? '∞' : num(s.profit_factor, 2), raw: s => (s.profit_factor == null || s.profit_factor === 0) ? Infinity : s.profit_factor },
+        { key: 'expectancy',      label: 'Expectancy',       dir: 1,  fmt: s => pct(s.expectancy, 2, true), signed: true },
+        { key: 'avg_alpha_pct',   label: 'Alpha vs Nifty',   dir: 1,  fmt: s => pct(s.avg_alpha_pct, 2, true), signed: true },
+        { key: 'max_drawdown_pct',label: 'Max drawdown',     dir: -1, fmt: s => pct(s.max_drawdown_pct, 1) },
+        { key: 'avg_days_held',   label: 'Avg days held',    dir: 0,  fmt: s => (s.avg_days_held == null ? DASH : num(s.avg_days_held, 1)) },
+        { key: 'closed_trades',   label: 'Closed trades',    dir: 0,  fmt: s => (s.closed_trades == null ? DASH : String(s.closed_trades)) }
+    ];
+
+    // raw comparable value for a metric on a stats object
+    function metricRaw(m, s) {
+        if (!s) return null;
+        if (m.raw) return m.raw(s);
+        const v = s[m.key];
+        return (v == null || isNaN(v)) ? null : Number(v);
+    }
+
+    const FACTORS = [
+        { key: 'avg_score',       label: 'Score',       max: 100 },
+        { key: 'avg_technical',   label: 'Technical',   max: 30 },
+        { key: 'avg_fundamental', label: 'Fundamental', max: 10 },
+        { key: 'avg_earnings',    label: 'Earnings',    max: 15 },
+        { key: 'avg_smart_money', label: 'Smart money', max: 10 },
+        { key: 'avg_risk',        label: 'Risk',        max: 100 }
+    ];
+
+    // ---- data holders ----
+    let ENGINES = [];      // [{id,label}]
+    let STATS = {};        // id -> stats
+    let COVERAGE = {};     // id -> coverage row (or undefined)
+
+    function showError() {
+        document.getElementById('cmpSkeleton').style.display = 'none';
+        document.getElementById('cmpContent').style.display = 'none';
+        const box = document.getElementById('cmpError');
+        box.style.display = 'block';
+        box.innerHTML =
+            '<div class="cmp-error-box">' +
+            '<div class="msg">Could not load engine comparison.</div>' +
+            '<button class="cmp-retry" id="cmpRetryBtn">Retry</button>' +
+            '</div>';
+        document.getElementById('cmpRetryBtn').addEventListener('click', load);
+    }
+
+    // Determine which engine index holds the best value for a metric row.
+    // Returns a Set of indices to highlight pos, and the worst index for neg.
+    function bestWorst(m) {
+        if (!m.dir) return { best: -1, worst: -1 };
+        let bestIdx = -1, worstIdx = -1, bestVal = null, worstVal = null;
+        let seen = 0;
+        ENGINES.forEach((e, i) => {
+            const v = metricRaw(m, STATS[e.id]);
+            if (v == null) return;
+            seen++;
+            const cmp = m.dir; // +1 higher better, -1 lower better
+            if (bestVal == null || (cmp === 1 ? v > bestVal : v < bestVal)) { bestVal = v; bestIdx = i; }
+            if (worstVal == null || (cmp === 1 ? v < worstVal : v > worstVal)) { worstVal = v; worstIdx = i; }
+        });
+        // only highlight when there's a genuine difference across >=2 engines
+        if (seen < 2 || bestVal === worstVal) return { best: -1, worst: -1 };
+        return { best: bestIdx, worst: worstIdx };
+    }
+
+    function renderPerformance(engIdx, s) {
+        let rows = '';
+        METRICS.forEach(m => {
+            const bw = bestWorst(m);
+            let cls = '';
+            if (bw.best === engIdx) cls = ' is-pos';
+            else if (bw.worst === engIdx) cls = ' is-neg';
+            const val = s ? m.fmt(s) : DASH;
+            rows +=
+                '<div class="cmp-row">' +
+                '<div class="cmp-row-label">' + esc(m.label) + '</div>' +
+                '<div class="cmp-row-val' + cls + '">' + val + '</div>' +
+                '</div>';
+        });
+        return '<div class="cmp-block">' +
+            '<div class="cmp-block-title">Performance</div>' + rows +
+            '</div>';
+    }
+
+    function covPct(v) {
+        if (v == null || isNaN(v)) return null;
+        return Math.max(0, Math.min(100, Number(v)));
+    }
+    function covItem(label, valText, fillPct) {
+        const w = (fillPct == null) ? 0 : fillPct;
+        return '<div class="cmp-cov-item">' +
+            '<div class="cmp-cov-head">' +
+            '<span class="cmp-cov-label">' + esc(label) + '</span>' +
+            '<span class="cmp-cov-val">' + valText + '</span>' +
+            '</div>' +
+            '<div class="cmp-cov-track"><div class="cmp-cov-fill" style="width:' + w + '%"></div></div>' +
+            '</div>';
+    }
+
+    function renderCoverage(engId) {
+        const c = COVERAGE[engId];
+        let body, notice = '';
+        if (!c) {
+            body =
+                covItem('Scored / Universe', DASH, null) +
+                covItem('Sector coverage', DASH, null) +
+                covItem('Earnings coverage', DASH, null) +
+                covItem('Fundamentals coverage', DASH, null);
+            notice = '<div class="cmp-notice">Coverage data unavailable.</div>';
+        } else {
+            const scored = (c.scored == null || c.universe == null)
+                ? DASH
+                : c.scored + ' / ' + c.universe;
+            const scoredPct = (c.scored != null && c.universe)
+                ? covPct((c.scored / c.universe) * 100) : null;
+            const sectorPct = covPct(c.sector_pct);
+            const earnPct = covPct(c.earnings_pct);
+            const fundPct = covPct(c.fundamentals_pct);
+            body =
+                covItem('Scored / Universe', scored, scoredPct) +
+                covItem('Sector coverage', sectorPct == null ? DASH : num(sectorPct, 1) + '%', sectorPct) +
+                covItem('Earnings coverage',
+                    earnPct == null ? DASH : num(earnPct, 1) + '%' +
+                        (c.earnings_rows != null ? ' <span class="cmp-row-sub">(' + c.earnings_rows + ')</span>' : ''),
+                    earnPct) +
+                covItem('Fundamentals coverage', fundPct == null ? DASH : num(fundPct, 1) + '%', fundPct);
+        }
+        return '<div class="cmp-block">' +
+            '<div class="cmp-block-title">Coverage</div>' + body + notice +
+            '</div>';
+    }
+
+    function renderFactors(s) {
+        const fa = (s && s.factor_attribution) || {};
+        const w = fa.winners || {};
+        const l = fa.losers || {};
+        let rows = '';
+        FACTORS.forEach(f => {
+            const wv = Number(w[f.key] || 0);
+            const lv = Number(l[f.key] || 0);
+            const wPct = Math.max(0, Math.min(100, (wv / f.max) * 100));
+            const lPct = Math.max(0, Math.min(100, (lv / f.max) * 100));
+            rows +=
+                '<div class="cmp-fac-row">' +
+                '<div class="cmp-fac-label">' + esc(f.label) + '</div>' +
+                '<div class="cmp-fac-track">' +
+                '<div class="cmp-fac-bar win" style="width:' + wPct + '%"></div>' +
+                '<div class="cmp-fac-bar lose" style="width:' + lPct + '%"></div>' +
+                '</div>' +
+                '<div class="cmp-fac-val win">' + num(wv, 1) + '</div>' +
+                '<div class="cmp-fac-val lose">' + num(lv, 1) + '</div>' +
+                '</div>';
+        });
+        const legend =
+            '<div class="cmp-fac-legend">' +
+            '<span><i style="background:var(--pos)"></i>Winners</span>' +
+            '<span><i style="background:var(--neg)"></i>Losers</span>' +
+            '</div>';
+        return '<div class="cmp-block">' +
+            '<div class="cmp-block-title">Factor attribution</div>' +
+            legend + rows +
+            '</div>';
+    }
+
+    function renderColumn(e, i) {
+        const s = STATS[e.id];
+        return '<div class="cmp-col">' +
+            '<div class="cmp-col-head">' +
+            '<span class="cmp-col-dot"></span>' +
+            '<span class="cmp-col-title">' + esc(e.label || e.id) + '</span>' +
+            '<span class="cmp-col-id">' + esc(e.id) + '</span>' +
+            '</div>' +
+            renderPerformance(i, s) +
+            renderCoverage(e.id) +
+            renderFactors(s) +
+            '</div>';
+    }
+
+    function render() {
+        document.getElementById('cmpSkeleton').style.display = 'none';
+        document.getElementById('cmpError').style.display = 'none';
+        const root = document.getElementById('cmpContent');
+        root.className = 'cmp-grid';
+        root.style.display = 'grid';  // must be grid (not block) so the side-by-side columns apply
+        root.style.setProperty('--cmp-cols', String(ENGINES.length || 1));
+        root.innerHTML = ENGINES.map(renderColumn).join('');
+    }
+
+    async function fetchJSON(path) {
+        const r = await fetch(QR.url(path));
+        if (!r.ok) throw new Error(path + ' -> ' + r.status);
+        return r.json();
+    }
+
+    async function load() {
+        // reset to skeleton
+        document.getElementById('cmpError').style.display = 'none';
+        document.getElementById('cmpContent').style.display = 'none';
+        document.getElementById('cmpSkeleton').style.display = 'grid';
+        try {
+            const eng = await fetchJSON('/api/engines');
+            ENGINES = (eng && eng.engines) ? eng.engines : [];
+            if (!ENGINES.length) { showError(); return; }
+
+            // Per-engine stats in parallel; one failing engine => empty stats (renders DASH)
+            const statsList = await Promise.all(ENGINES.map(e =>
+                fetchJSON('/api/paper-trades/stats?engine=' + encodeURIComponent(e.id))
+                    .catch(() => null)
+            ));
+            STATS = {};
+            ENGINES.forEach((e, i) => { STATS[e.id] = statsList[i]; });
+
+            // Coverage: single call, contract may 404 => degrade to '—'
+            COVERAGE = {};
+            try {
+                const cov = await fetchJSON('/api/engines/coverage');
+                const list = (cov && cov.engines) ? cov.engines : [];
+                list.forEach(row => { if (row && row.id != null) COVERAGE[row.id] = row; });
+            } catch (e) {
+                COVERAGE = {}; // graceful degrade
+            }
+
+            render();
+        } catch (e) {
+            showError();
+        }
+    }
+
+    // QR (engine helper) is defined by _app_base further down the DOM; wait until parsed.
+    if (document.readyState !== 'loading') load();
+    else document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
+{% endblock %}

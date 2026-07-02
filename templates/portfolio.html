@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Portfolio Manager — AI Smart Screener</title>
+    <script src="{{ url_for('static', filename='js/quantresearch-core.js') }}"></script>
+    <script>(function(){var t=QuantResearch.SystemRepository.getPreference('theme', null)||'dark';document.documentElement.setAttribute('data-theme',t);})();function toggleTheme(){var c=document.documentElement.getAttribute('data-theme')||'dark';var n=c==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',n);QuantResearch.SystemRepository.setPreference('theme',n);}</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
+        :root, [data-theme="dark"] {
+            --bg-primary: #06090f;
+            --bg-secondary: #0d111a;
+            --bg-tertiary: #161c28;
+            --bg-hover: #1e2638;
+            --header-bg: #090d15;
+            --primary: #00C8FF;
+            --primary-light: #38D6FF;
+            --green: #05ffc7;
+            --green-bg: rgba(5, 255, 199, 0.06);
+            --green-border: rgba(5, 255, 199, 0.2);
+            --red: #ff4b72;
+            --red-bg: rgba(255, 75, 114, 0.06);
+            --red-border: rgba(255, 75, 114, 0.2);
+            --yellow: #ffd700;
+            --yellow-bg: rgba(255, 215, 0, 0.06);
+            --blue: #00f2fe;
+            --blue-bg: rgba(0, 242, 254, 0.06);
+            --purple: #d580ff;
+            --purple-bg: rgba(213, 128, 255, 0.06);
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --border: #182235;
+            --radius: 8px;
+            --canvas-bg: #0d111a;
+            --gold: #ffd700;
+            --glow-shadow: 0 0 12px rgba(0, 242, 254, 0.15);
+        }
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --bg-hover: #e2e8f0;
+            --header-bg: #ffffff;
+            --primary: #0078CC;
+            --primary-light: #00C8FF;
+            --green: #10b981;
+            --green-bg: rgba(16, 185, 129, 0.06);
+            --green-border: rgba(16, 185, 129, 0.15);
+            --red: #ef4444;
+            --red-bg: rgba(239, 68, 68, 0.06);
+            --red-border: rgba(239, 68, 68, 0.15);
+            --yellow: #f59e0b;
+            --yellow-bg: rgba(245, 158, 11, 0.06);
+            --blue: #3b82f6;
+            --blue-bg: rgba(59, 130, 246, 0.06);
+            --purple: #8b5cf6;
+            --purple-bg: rgba(139, 92, 246, 0.06);
+            --text: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 8px;
+            --canvas-bg: #ffffff;
+            --gold: #e2b007;
+            --glow-shadow: 0 0 8px rgba(59, 130, 246, 0.1);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 13px;
+            letter-spacing: -0.15px;
+        }
+
+        .topbar {
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--border);
+            height: 52px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .topbar a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: var(--radius);
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+        .topbar a:hover {
+            background: var(--bg-tertiary);
+            color: var(--primary);
+        }
+        .topbar h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: -0.3px;
+        }
+        .topbar-spacer {
+            flex: 1;
+        }
+        .topbar-divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+        }
+
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Summary Cards */
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--glow-shadow);
+        }
+        .card .label {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+        }
+        .card .value {
+            font-family: 'Outfit', sans-serif;
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .card .sub {
+            font-size: 11px;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        /* Portfolio List */
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .pf-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .pf-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 200, 255, 0.08);
+        }
+        .pf-card h3 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+        .pf-card .pf-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .pf-card .pf-pnl {
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .pf-card .pf-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 7px 14px;
+            border-radius: var(--radius);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--bg-hover);
+        }
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-light);
+            box-shadow: 0 4px 12px rgba(0, 200, 255, 0.25);
+        }
+        .btn-danger {
+            border-color: var(--red);
+            color: var(--red);
+            background: rgba(255, 75, 114, 0.02);
+        }
+        .btn-danger:hover {
+            background: var(--red-bg);
+            border-color: var(--red);
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 10px;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        thead {
+            background: var(--bg-tertiary);
+            position: sticky;
+            top: 52px;
+            z-index: 5;
+        }
+        th {
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+            color: var(--text-secondary);
+        }
+        tbody tr {
+            transition: background 0.15s ease;
+        }
+        tbody tr:hover {
+            background: var(--bg-hover);
+        }
+        tbody tr:hover td {
+            color: var(--text);
+        }
+        .pos-open {
+            border-left: 3px solid var(--green);
+        }
+        .pos-closed {
+            border-left: 3px solid var(--text-muted);
+            opacity: 0.7;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), var(--glow-shadow);
+        }
+        .modal h2 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 16px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            font-size: 12px;
+            outline: none;
+            transition: all 0.15s ease;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: var(--primary);
+            background: var(--bg-hover);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .form-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        /* Symbol autocomplete */
+        .sym-suggestions {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 200;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+        .sym-suggestions.open {
+            display: block;
+        }
+        .sym-sug-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.1s ease;
+        }
+        .sym-sug-item:last-child {
+            border-bottom: none;
+        }
+        .sym-sug-item:hover, .sym-sug-item.active {
+            background: var(--bg-hover);
+        }
+        .sym-sug-item .ss-sym {
+            font-weight: 700;
+            color: var(--primary);
+            min-width: 80px;
+        }
+        .sym-sug-item .ss-sector {
+            color: var(--text-muted);
+            font-size: 11px;
+        }
+        .sym-sug-item .ss-price {
+            margin-left: auto;
+            font-weight: 600;
+            font-size: 11px;
+            font-family: 'Outfit', sans-serif;
+        }
+        .sym-sug-item .ss-score {
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-left: 4px;
+            font-weight: 700;
+        }
+
+        /* Signal badges */
+        .signal-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-align: center;
+        }
+        .sig-hold {
+            background: var(--green-bg);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+        .sig-sell {
+            background: var(--red-bg);
+            color: var(--red);
+            border: 1px solid var(--red-border);
+        }
+        .sig-trail {
+            background: var(--yellow-bg);
+            color: var(--yellow);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        .sig-caution {
+            background: var(--yellow-bg);
+            color: var(--yellow);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .pnl-pos {
+            color: var(--green);
+        }
+        .pnl-neg {
+            color: var(--red);
+        }
+        .pnl-zero {
+            color: var(--text-muted);
+        }
+        .status-open {
+            color: var(--green);
+            font-weight: 600;
+            font-size: 10px;
+        }
+        .status-closed {
+            color: var(--text-muted);
+            font-size: 10px;
+        }
+        .live-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 6px var(--green);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.8); }
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            margin-top: 16px;
+        }
+        .empty h2 {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0;
+            margin-top: 20px;
+        }
+        .tab {
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .tab:hover {
+            color: var(--text);
+        }
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+    </style>
+</head>
+<body data-theme="dark">
+    <div class="topbar">
+        <a href="/">&#8592; Dashboard</a>
+        <div class="topbar-divider"></div>
+        <h1>Portfolio Manager</h1>
+        <div class="topbar-spacer"></div>
+        <span class="live-dot"></span>
+        <span style="font-size:10px;color:var(--text-muted)" id="liveStatus">Live</span>
+        <button class="btn btn-primary" onclick="showCreatePortfolio()">+ New Portfolio</button>
+        <button class="btn" onclick="toggleTheme()" title="Toggle light / dark mode" aria-label="Toggle theme" style="background:none;border:1px solid var(--border);color:var(--text-secondary);width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sun" style="width:14px;height:14px"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-moon" style="width:14px;height:14px"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <style>
+            .icon-sun,.icon-moon{display:none}
+            [data-theme="dark"] .icon-sun{display:block!important}
+            [data-theme="light"] .icon-moon{display:block!important}
+        </style>
+        <div class="topbar-divider"></div>
+        <div style="position:relative" id="userMenu">
+            <button class="topbar-btn" onclick="document.getElementById('userDrop').classList.toggle('show')" style="background:none;border:1px solid var(--border);color:var(--text-secondary);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer">&#9881;</button>
+            <div id="userDrop" style="display:none;position:absolute;right:0;top:110%;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,0.3);z-index:99">
+                <a href="{{ url_for('auth.logout') }}" style="display:block;padding:9px 14px;color:var(--text-secondary);text-decoration:none;font-size:12px">Sign out</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Portfolio List View -->
+        <div id="listView">
+            <div class="portfolio-grid" id="portfolioGrid"></div>
+            <div class="empty" id="emptyState" style="display:none">
+                <h2>No Portfolios Yet</h2>
+                <p>Create your first portfolio to start tracking trades</p>
+                <button class="btn btn-primary" style="margin-top:12px" onclick="showCreatePortfolio()">+ Create Portfolio</button>
+            </div>
+        </div>
+
+        <!-- Single Portfolio Detail View -->
+        <div id="detailView" style="display:none">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                <a href="#" onclick="showList();return false" style="color:var(--text-muted);text-decoration:none;font-size:18px">&#8592;</a>
+                <h2 id="pfName" style="font-size:18px;color:var(--primary)"></h2>
+                <span id="pfDesc" style="font-size:11px;color:var(--text-muted)"></span>
+                <div style="flex:1"></div>
+                <button class="btn btn-primary" onclick="showAddPosition()">+ Add Trade</button>
+            </div>
+
+            <div class="summary" id="pfSummary"></div>
+
+            <div class="tab-bar">
+                <div class="tab active" onclick="setTab('open',this)">Open Positions</div>
+                <div class="tab" onclick="setTab('closed',this)">Closed Trades</div>
+                <div class="tab" onclick="setTab('all',this)">All</div>
+            </div>
+
+            <table id="posTable">
+                <thead>
+                    <tr>
+                        <th>Symbol</th>
+                        <th>Qty</th>
+                        <th>Buy</th>
+                        <th>Current</th>
+                        <th>P&L</th>
+                        <th>Day</th>
+                        <th>Signal</th>
+                        <th>30-Min Scan Alert</th>
+                        <th>SL (Auto)</th>
+                        <th>Target (Auto)</th>
+                        <th>RSI</th>
+                        <th>Score</th>
+                        <th>Chart</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="posBody"></tbody>
+            </table>
+            <div class="empty" id="posEmpty" style="display:none">
+                <p>No positions yet. Click "+ Add Trade" to add one.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Portfolio Modal -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <h2>Create Portfolio</h2>
+            <div class="form-group">
+                <label>Portfolio Name</label>
+                <input type="text" id="pfNameInput" placeholder="e.g. Swing Trading, Long Term">
+            </div>
+            <div class="form-group">
+                <label>Description (optional)</label>
+                <input type="text" id="pfDescInput" placeholder="e.g. 2-4 week swing trades">
+            </div>
+            <div class="form-actions">
+                <button class="btn" onclick="hideModal('createModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="createPortfolio()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Position Modal -->
+    <div class="modal-overlay" id="posModal">
+        <div class="modal">
+            <h2 id="posModalTitle">Add Trade</h2>
+            <div class="form-group" style="position:relative">
+                <label>Symbol</label>
+                <input type="text" id="posSymbol" placeholder="e.g. TCS or NSE:TCS" autocomplete="off"
+                       oninput="this.value=this.value.toUpperCase();onSymbolInput(this.value)"
+                       onkeydown="onSymbolKey(event)"
+                       onfocus="onSymbolInput(this.value)"
+                       onblur="setTimeout(()=>hideSymbolSug(),200)">
+                <div class="sym-suggestions" id="symSuggestions"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="posQty" placeholder="10" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Buy Price (₹)</label>
+                    <input type="number" id="posBuyPrice" placeholder="1500.00" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Buy Date</label>
+                    <input type="date" id="posBuyDate">
+                </div>
+                <div class="form-group">
+                    <label>Stop Loss (₹)</label>
+                    <input type="number" id="posSL" placeholder="Optional" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Target (₹)</label>
+                    <input type="number" id="posTarget" placeholder="Optional" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <input type="text" id="posNotes" placeholder="Optional">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button class="btn" onclick="hideModal('posModal')">Cancel</button>
+                <button class="btn btn-primary" id="posSubmitBtn" onclick="addPosition()">Add Trade</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Close Position Modal -->
+    <div class="modal-overlay" id="closeModal">
+        <div class="modal">
+            <h2>Close Position</h2>
+            <div class="form-group">
+                <label>Sell Price (₹)</label>
+                <input type="number" id="closeSellPrice" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Sell Date</label>
+                <input type="date" id="closeSellDate">
+            </div>
+            <div class="form-actions">
+                <button class="btn" onclick="hideModal('closeModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="closePosition()">Close Trade</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const INIT_PID = {{ portfolio_id or 'null' }};
+let currentPID = null;
+let currentTab = 'open';
+let positionToClose = null;
+
+// Theme: applied in <head> for both <html> and (for legacy CSS selectors) <body>
+document.body.dataset.theme = document.documentElement.getAttribute('data-theme') || 'dark';
+
+// ===== API =====
+async function api(url, method='GET', body=null){
+    const opts = {method, headers:{'Content-Type':'application/json'}};
+    if(body) opts.body = JSON.stringify(body);
+    const r = await fetch(url, opts);
+    return r.json();
+}
+
+// ===== PORTFOLIO LIST =====
+async function loadPortfolios(){
+    const d = await api('/api/portfolios');
+    const grid = document.getElementById('portfolioGrid');
+    const empty = document.getElementById('emptyState');
+
+    if(!d.portfolios.length){
+        grid.innerHTML=''; empty.style.display='block'; return;
+    }
+    empty.style.display='none';
+
+    grid.innerHTML = d.portfolios.map(p=>{
+        const s = p.summary;
+        const uPnl = s.unrealized_pnl || 0;
+        const rPnl = s.realized_pnl || 0;
+        const tPnl = s.total_pnl || 0;
+        const uCls = uPnl>0?'pnl-pos':uPnl<0?'pnl-neg':'pnl-zero';
+        const rCls = rPnl>0?'pnl-pos':rPnl<0?'pnl-neg':'pnl-zero';
+        const tCls = tPnl>0?'pnl-pos':tPnl<0?'pnl-neg':'pnl-zero';
+        const uPct = s.unrealized_pnl_pct || 0;
+        return `<div class="pf-card" onclick="showPortfolio(${p.id})">
+            <h3>${p.name}</h3>
+            ${p.description?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${p.description}</div>`:''}
+            <div class="pf-stats">
+                <span>Open: ${s.open_count}</span>
+                <span>Invested: ₹${s.invested.toLocaleString('en-IN')}</span>
+                <span>Current: ₹${(s.current_value||0).toLocaleString('en-IN')}</span>
+                <span>Closed: ${s.closed_count}</span>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap">
+                <div style="flex:1;min-width:120px">
+                    <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase">Unrealized P&L</div>
+                    <div class="pf-pnl ${uCls}" style="font-size:16px">${uPnl>0?'+':''}₹${uPnl.toLocaleString('en-IN')} <span style="font-size:11px">(${uPct>0?'+':''}${uPct}%)</span></div>
+                </div>
+                <div style="flex:1;min-width:120px">
+                    <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase">Realized P&L</div>
+                    <div class="pf-pnl ${rCls}" style="font-size:16px">${rPnl>0?'+':''}₹${rPnl.toLocaleString('en-IN')}</div>
+                </div>
+                <div style="flex:1;min-width:120px">
+                    <div style="font-size:9px;color:var(--text-muted);text-transform:uppercase">Total P&L</div>
+                    <div class="pf-pnl ${tCls}" style="font-size:16px;font-weight:800">${tPnl>0?'+':''}₹${tPnl.toLocaleString('en-IN')}</div>
+                </div>
+            </div>
+            <div class="pf-actions">
+                <button class="btn btn-sm" onclick="event.stopPropagation();showPortfolio(${p.id})">Open</button>
+                <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deletePortfolio(${p.id},'${p.name}')">Delete</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function showList(){
+    document.getElementById('listView').style.display='block';
+    document.getElementById('detailView').style.display='none';
+    currentPID=null;
+    loadPortfolios();
+    history.replaceState(null,'','/portfolio');
+}
+
+// ===== SINGLE PORTFOLIO =====
+async function showPortfolio(pid){
+    currentPID = pid;
+    document.getElementById('listView').style.display='none';
+    document.getElementById('detailView').style.display='block';
+    history.replaceState(null,'','/portfolio/'+pid);
+
+    const pf = await api('/api/portfolios');
+    const p = pf.portfolios.find(x=>x.id===pid);
+    if(p){
+        document.getElementById('pfName').textContent=p.name;
+        document.getElementById('pfDesc').textContent=p.description||'';
+    }
+    loadPositions();
+}
+
+async function loadPositions(){
+    if(!currentPID) return;
+    const d = await api(`/api/portfolios/${currentPID}/positions`);
+    const s = d.summary;
+
+    // Summary cards
+    const upnlCls = s.unrealized_pnl>0?'pnl-pos':s.unrealized_pnl<0?'pnl-neg':'pnl-zero';
+    const rpnlCls = s.realized_pnl>0?'pnl-pos':s.realized_pnl<0?'pnl-neg':'pnl-zero';
+    const tpnlCls = s.total_pnl>0?'pnl-pos':s.total_pnl<0?'pnl-neg':'pnl-zero';
+
+    document.getElementById('pfSummary').innerHTML=`
+        <div class="card"><div class="label">Invested</div><div class="value">₹${s.invested.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="label">Current Value</div><div class="value">₹${s.current_value.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="label">Unrealized P&L</div><div class="value ${upnlCls}">${s.unrealized_pnl>0?'+':''}₹${s.unrealized_pnl.toLocaleString('en-IN')}</div><div class="sub ${upnlCls}">${s.unrealized_pnl_pct>0?'+':''}${s.unrealized_pnl_pct}%</div></div>
+        <div class="card"><div class="label">Realized P&L</div><div class="value ${rpnlCls}">${s.realized_pnl>0?'+':''}₹${s.realized_pnl.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="label">Total P&L</div><div class="value ${tpnlCls}">${s.total_pnl>0?'+':''}₹${s.total_pnl.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="label">Positions</div><div class="value">${s.open_count} <span style="font-size:11px;color:var(--text-muted)">open</span></div><div class="sub">${s.closed_count} closed</div></div>
+    `;
+
+    // Filter by tab
+    let positions = d.positions;
+    if(currentTab==='open') positions=positions.filter(p=>p.status==='OPEN');
+    else if(currentTab==='closed') positions=positions.filter(p=>p.status==='CLOSED');
+
+    const tbody = document.getElementById('posBody');
+    const empty = document.getElementById('posEmpty');
+
+    if(!positions.length){
+        tbody.innerHTML=''; empty.style.display='block'; return;
+    }
+    empty.style.display='none';
+
+    tbody.innerHTML = positions.map(p=>{
+        const isOpen = p.status==='OPEN';
+        const pnl = p.pnl||0;
+        const pnlPct = p.pnl_pct||0;
+        const pnlCls = pnl>0?'pnl-pos':pnl<0?'pnl-neg':'pnl-zero';
+        const dayChg = p.day_change_pct||0;
+        const dayChgCls = dayChg>0?'pnl-pos':dayChg<0?'pnl-neg':'pnl-zero';
+        const currentOrSell = isOpen
+            ? (p.current_price ? `₹${p.current_price.toLocaleString('en-IN')}` : '<span class="live-dot"></span>')
+            : (p.sell_price ? `₹${p.sell_price.toLocaleString('en-IN')}` : '—');
+
+        // Signal styling
+        const sig = p.signal||'';
+        const sigCls = sig==='SELL'||sig==='BOOK PROFIT'?'sig-sell':sig==='HOLD'?'sig-hold':sig==='TRAIL SL'?'sig-trail':'sig-caution';
+        const sigReasons = (p.signal_reasons||[]).join(', ');
+
+        // 30-Min Scan Alert
+        const scanAlert = p.scan_analysis || 'Hold (Position Active)';
+        const lastScanTime = p.last_scan_at ? `<div style="font-size:8px;color:var(--text-muted);margin-top:2px">${p.last_scan_at}</div>` : '';
+        const scanAlertCls = scanAlert.includes('Exit') || scanAlert.includes('Stop Loss') ? 'sig-sell' : (scanAlert.includes('Book') || scanAlert.includes('Profit') ? 'sig-sell' : 'sig-hold');
+
+        // Auto SL/Target
+        const autoSL = p.auto_sl ? `₹${p.auto_sl.toLocaleString('en-IN')}<div style="font-size:9px;color:var(--text-muted)">${p.auto_sl_pct||''}%</div>` : '—';
+        const autoTarget = p.auto_target ? `₹${p.auto_target.toLocaleString('en-IN')}<div style="font-size:9px;color:var(--text-muted)">+${p.auto_target_pct||''}%</div>` : '—';
+
+        // RSI color
+        const rsi = p.rsi||0;
+        const rsiCls = rsi<35?'pnl-pos':rsi>70?'pnl-neg':'';
+
+        // Score
+        const score = p.score||0;
+        const scoreBg = score>=70?'background:var(--green-bg);color:var(--green)':score>=40?'background:var(--yellow-bg);color:var(--yellow)':'background:var(--bg-tertiary);color:var(--text-muted)';
+
+        return `<tr class="${isOpen?'pos-open':'pos-closed'}">
+            <td>
+                <a href="/stock/${p.symbol}" style="color:var(--primary);font-weight:600;text-decoration:none;font-size:13px">${p.symbol}</a>
+                ${p.high_conviction?'<span style="background:rgba(255,215,64,0.12);color:var(--gold);padding:1px 4px;border-radius:3px;font-size:8px;font-weight:700;margin-left:3px">HC</span>':''}
+                <div style="font-size:9px;color:var(--text-muted)">${p.sector||''} ${p.notes?'· '+p.notes:''}</div>
+                <div style="font-size:9px;color:var(--text-muted)">${p.buy_date}</div>
+            </td>
+            <td>${p.quantity}</td>
+            <td>₹${p.buy_price.toLocaleString('en-IN')}</td>
+            <td>
+                <div style="font-weight:600">${currentOrSell}</div>
+                <div class="${pnlCls}" style="font-size:10px">${pnl>0?'+':''}₹${pnl.toLocaleString('en-IN')} (${pnlPct>0?'+':''}${pnlPct}%)</div>
+            </td>
+            <td class="${pnlCls}" style="font-weight:700;font-size:14px">${pnlPct>0?'+':''}${pnlPct}%<div style="font-size:10px;font-weight:400">${pnl>0?'+':''}₹${pnl.toLocaleString('en-IN')}</div></td>
+            <td class="${dayChgCls}" style="font-size:11px">${isOpen?(dayChg>0?'+':'')+dayChg+'%':'—'}</td>
+            <td>${isOpen&&sig?`<div class="signal-badge ${sigCls}" title="${sigReasons}">${sig}</div>${sigReasons?`<div style="font-size:8px;color:var(--text-muted);max-width:100px;line-height:1.2;margin-top:2px">${sigReasons}</div>`:''}`:'—'}</td>
+            <td>${isOpen?`<div class="signal-badge ${scanAlertCls}">${scanAlert}</div>${lastScanTime}`:'—'}</td>
+            <td style="font-size:11px">${isOpen?autoSL:'—'}</td>
+            <td style="font-size:11px">${isOpen?autoTarget:'—'}</td>
+            <td class="${rsiCls}" style="font-weight:600">${isOpen&&rsi?rsi:'—'}${isOpen&&p.adx?`<div style="font-size:9px;color:var(--text-muted)">ADX:${p.adx}</div>`:''}</td>
+            <td>${isOpen&&score?`<span style="padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;${scoreBg}">${score}</span>`:''}</td>
+            <td style="white-space:nowrap">
+                <a href="/stock/${p.symbol}" class="btn btn-sm" title="Detail">📊</a>
+                <a href="https://www.tradingview.com/chart/?symbol=NSE:${encodeURIComponent(p.symbol)}" target="_blank" class="btn btn-sm" title="TradingView" style="font-size:10px">TV</a>
+            </td>
+            <td style="white-space:nowrap">
+                ${isOpen?`<button class="btn btn-sm" onclick="showClosePosition(${p.id},${p.current_price||0})" style="color:var(--green)">Sell</button>`:''}
+                <button class="btn btn-sm btn-danger" onclick="deletePosition(${p.id})">✕</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function setTab(tab,el){
+    currentTab=tab;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    if(el) el.classList.add('active');
+    loadPositions();
+}
+
+// ===== MODALS =====
+function showModal(id){document.getElementById(id).classList.add('active')}
+function hideModal(id){document.getElementById(id).classList.remove('active')}
+
+function showCreatePortfolio(){
+    document.getElementById('pfNameInput').value='';
+    document.getElementById('pfDescInput').value='';
+    showModal('createModal');
+    document.getElementById('pfNameInput').focus();
+}
+
+async function createPortfolio(){
+    const name=document.getElementById('pfNameInput').value.trim();
+    if(!name) return;
+    await api('/api/portfolios','POST',{name,description:document.getElementById('pfDescInput').value});
+    hideModal('createModal');
+    loadPortfolios();
+}
+
+async function deletePortfolio(pid,name){
+    if(!confirm(`Delete portfolio "${name}" and all its positions?`)) return;
+    await api(`/api/portfolios/${pid}`,'DELETE');
+    if(currentPID===pid) showList();
+    else loadPortfolios();
+}
+
+function showAddPosition(){
+    document.getElementById('posSymbol').value='';
+    document.getElementById('posQty').value='';
+    document.getElementById('posBuyPrice').value='';
+    document.getElementById('posBuyDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('posSL').value='';
+    document.getElementById('posTarget').value='';
+    document.getElementById('posNotes').value='';
+    document.getElementById('posModalTitle').textContent='Add Trade';
+    showModal('posModal');
+    document.getElementById('posSymbol').focus();
+}
+
+async function addPosition(){
+    const sym=document.getElementById('posSymbol').value.replace('NSE:','').replace('.NS','').trim();
+    const qty=document.getElementById('posQty').value;
+    const price=document.getElementById('posBuyPrice').value;
+    if(!sym||!qty||!price){alert('Symbol, Quantity, Buy Price required');return}
+
+    await api(`/api/portfolios/${currentPID}/positions`,'POST',{
+        symbol:sym,
+        quantity:parseInt(qty),
+        buy_price:parseFloat(price),
+        buy_date:document.getElementById('posBuyDate').value,
+        stop_loss:document.getElementById('posSL').value||null,
+        target:document.getElementById('posTarget').value||null,
+        notes:document.getElementById('posNotes').value,
+    });
+    hideModal('posModal');
+    loadPositions();
+}
+
+function showClosePosition(posId, currentPrice){
+    positionToClose=posId;
+    document.getElementById('closeSellPrice').value=currentPrice||'';
+    document.getElementById('closeSellDate').value=new Date().toISOString().slice(0,10);
+    showModal('closeModal');
+    document.getElementById('closeSellPrice').focus();
+}
+
+async function closePosition(){
+    if(!positionToClose) return;
+    const price=document.getElementById('closeSellPrice').value;
+    if(!price){alert('Sell price required');return}
+    await api(`/api/positions/${positionToClose}/close`,'POST',{
+        sell_price:parseFloat(price),
+        sell_date:document.getElementById('closeSellDate').value,
+    });
+    hideModal('closeModal');
+    positionToClose=null;
+    loadPositions();
+}
+
+async function deletePosition(posId){
+    if(!confirm('Delete this position?')) return;
+    await api(`/api/positions/${posId}`,'DELETE');
+    loadPositions();
+}
+
+// ===== LIVE UPDATE =====
+setInterval(()=>{if(currentPID) loadPositions()}, 10000);
+
+// ===== INIT =====
+window.addEventListener('DOMContentLoaded',()=>{
+    if(INIT_PID){
+        showPortfolio(INIT_PID);
+    }else{
+        loadPortfolios();
+    }
+});
+
+// ===== SYMBOL AUTOCOMPLETE =====
+let allStocks = [];
+let symSugIdx = -1;
+
+async function loadStockList(){
+    try{
+        const d = await api('/api/search-list');
+        if(Array.isArray(d)) allStocks = d;
+        else if(d.results) allStocks = d.results;
+    }catch(e){}
+}
+loadStockList();
+
+function onSymbolInput(val){
+    const q = val.replace('NSE:','').replace('.NS','').trim();
+    symSugIdx = -1;
+    if(q.length < 1){hideSymbolSug();return}
+    buildSymbolSug(q);
+}
+
+function buildSymbolSug(q){
+    const box = document.getElementById('symSuggestions');
+    const ql = q.toLowerCase();
+
+    // Match from scan results
+    let matches = allStocks.filter(s=>
+        s.symbol.toLowerCase().startsWith(ql) ||
+        s.symbol.toLowerCase().includes(ql) ||
+        (s.sector && s.sector.toLowerCase().includes(ql))
+    ).slice(0, 8);
+
+    if(!matches.length){
+        box.innerHTML = `<div style="padding:10px;text-align:center;color:var(--text-muted);font-size:11px">No match — type full symbol to add manually</div>`;
+        box.classList.add('open');
+        return;
+    }
+
+    box.innerHTML = matches.map((s,i)=>{
+        const scBg = s.score>=70?'background:var(--green-bg);color:var(--green)':s.score>=40?'background:var(--yellow-bg);color:var(--yellow)':'background:var(--bg-tertiary);color:var(--text-muted)';
+        return `<div class="sym-sug-item" onmousedown="selectSymbol('${s.symbol}',${s.price})">
+            <span class="ss-sym">${highlightMatch(s.symbol,q)}</span>
+            <span class="ss-sector">${s.sector||''}</span>
+            ${s.high_conviction?'<span style="color:var(--gold);font-size:9px;font-weight:700">HC</span>':''}
+            <span class="ss-price">₹${s.price.toLocaleString('en-IN')}</span>
+            <span class="ss-score" style="${scBg}">${s.score}</span>
+        </div>`;
+    }).join('');
+    box.classList.add('open');
+}
+
+function highlightMatch(text, q){
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if(idx===-1) return text;
+    return text.slice(0,idx)+'<strong style="color:var(--primary)">'+text.slice(idx,idx+q.length)+'</strong>'+text.slice(idx+q.length);
+}
+
+function selectSymbol(sym, price){
+    document.getElementById('posSymbol').value = sym;
+    // Auto-fill buy price with current price
+    const priceInput = document.getElementById('posBuyPrice');
+    if(priceInput && !priceInput.value) priceInput.value = price;
+    hideSymbolSug();
+    document.getElementById('posQty').focus();
+}
+
+function hideSymbolSug(){
+    document.getElementById('symSuggestions').classList.remove('open');
+    symSugIdx = -1;
+}
+
+function onSymbolKey(e){
+    const box = document.getElementById('symSuggestions');
+    const items = box.querySelectorAll('.sym-sug-item');
+    if(!items.length || !box.classList.contains('open')) return;
+
+    if(e.key==='ArrowDown'){
+        e.preventDefault();
+        symSugIdx = Math.min(symSugIdx+1, items.length-1);
+        items.forEach((el,i)=>el.classList.toggle('active',i===symSugIdx));
+        items[symSugIdx].scrollIntoView({block:'nearest'});
+    }else if(e.key==='ArrowUp'){
+        e.preventDefault();
+        symSugIdx = Math.max(symSugIdx-1, 0);
+        items.forEach((el,i)=>el.classList.toggle('active',i===symSugIdx));
+    }else if(e.key==='Enter' && symSugIdx>=0){
+        e.preventDefault();
+        items[symSugIdx].dispatchEvent(new Event('mousedown'));
+    }else if(e.key==='Escape'){
+        hideSymbolSug();
+    }
+}
+
+// Close modals on escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelectorAll('.modal-overlay.active').forEach(m=>m.classList.remove('active'))}});
+
+document.addEventListener('click',e=>{const dd=document.getElementById('userDrop');if(dd&&!e.target.closest('#userMenu'))dd.style.display='none'});
+</script>
+</body>
+</html>
