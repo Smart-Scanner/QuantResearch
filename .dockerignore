@@ -1,0 +1,56 @@
+# ── VCS ──────────────────────────────────────────────────────────────────────
+.git/
+.gitattributes
+.gitignore
+
+# ── Python caches / LOCAL venv (Windows) — never copy into the Linux image ────
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ── Node / Playwright dev harness (image is Python-only) ─────────────────────
+node_modules/
+package.json
+package-lock.json
+playwright.config.ts
+
+# ── Tests / certification / audits (not needed at runtime) ───────────────────
+tests/
+certification/
+release_audits/
+*.spec.ts
+
+# ── Runtime state + SECRETS — must never be baked into the image ──────────────
+.env
+.env.*
+cache/
+logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# ── Docs / dev artifacts ─────────────────────────────────────────────────────
+docs/
+*.md
+screenshot_*.png
+_v_sym_*.png
+*.zip
+.claude/
+scratch/
+scratchpad/
+test-results/
+
+# ── Desktop-only entrypoint (not used in the container) ──────────────────────
+run_desktop.py
+requirements-desktop.txt
+start_screener.bat
+
+# ── Docker meta ──────────────────────────────────────────────────────────────
+Dockerfile
+.dockerignore
