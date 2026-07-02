@@ -457,13 +457,60 @@ _pg_pool = None
 _pg_pool_lock = threading.Lock()
 _pg_cooldown_until = 0.0
 
+def _is_internal_pg_host(url: str) -> bool:
+    """True when the Postgres host looks internal/private (plaintext, no TLS).
+
+    Coolify (and most Docker PaaS) run Postgres as a SIBLING CONTAINER reached over a
+    private Docker network by its service name / private IP. That internal Postgres does
+    NOT terminate TLS, so forcing sslmode=require makes the handshake fail with
+    "server does not support SSL, but SSL was required". Such hosts speak plaintext.
+    External managed Postgres (public FQDN: RDS, Supabase, Railway proxy, Neon, …) does
+    support/expect TLS and is treated as external.
+    """
+    try:
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
+    if not host:
+        return False
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return True
+    # Docker/Coolify internal DNS: single-label service names (no dot) or *.internal / *.local
+    if "." not in host or host.endswith(".internal") or host.endswith(".local"):
+        return True
+    # RFC1918 / loopback IPs are private/internal networks
+    try:
+        import ipaddress
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback:
+            return True
+    except ValueError:
+        pass
+    return False
+
+
 def _normalize_pg_url(url: str) -> str:
-    """Ensure URL uses postgresql:// scheme and has sslmode set."""
+    """Ensure the URL uses the postgresql:// scheme and carries an appropriate sslmode.
+
+    Do NOT blindly force sslmode=require — that breaks internal Coolify/Docker Postgres,
+    which speaks plaintext over the private network. SSL policy, in order:
+      1. sslmode already in the URL  -> respect the operator's explicit choice.
+      2. DB_SSLMODE / PGSSLMODE env  -> explicit override for any host.
+      3. otherwise choose by host    -> INTERNAL/private host (Coolify service name,
+         localhost, docker bridge, *.internal, RFC1918 IP) => 'disable';
+         EXTERNAL managed host => 'require' (keep the secure default).
+    This keeps managed cloud Postgres (RDS/Supabase/Railway/Neon) on TLS while letting
+    the internal Coolify Postgres connect over the private Docker network without SSL.
+    """
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
-    if "sslmode" not in url:
-        url += ("&" if "?" in url else "?") + "sslmode=require"
-    return url
+    if "sslmode=" in url:
+        return url  # explicit in the URL — respect it, never override
+    mode = os.environ.get("DB_SSLMODE") or os.environ.get("PGSSLMODE")
+    if not mode:
+        mode = "disable" if _is_internal_pg_host(url) else "require"
+    return url + ("&" if "?" in url else "?") + "sslmode=" + mode
 
 def _get_pg_pool():
     """Lazy-initialise a ThreadedConnectionPool. Returns None if PG unavailable."""

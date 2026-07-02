@@ -7,8 +7,12 @@ url = os.getenv('DATABASE_URL')
 if not url:
     print("NO DB URL")
     exit()
-url = url.replace('postgres://', 'postgresql://')
-url += '&sslmode=require' if '?' in url else '?sslmode=require'
+# Use the app's own host-aware SSL policy instead of forcing sslmode=require,
+# so this smoke test matches production (internal Coolify/Docker PG -> sslmode=disable).
+import sys, os as _os
+sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+import db
+url = db._normalize_pg_url(url)
 
 try:
     p = psycopg2.pool.ThreadedConnectionPool(1, 1, url)
