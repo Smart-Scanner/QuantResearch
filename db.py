@@ -728,6 +728,40 @@ def execute_db(query: str, params=None, fetch: str = None, require_pg: bool = Fa
                             pass
                         conn = None
                     # fall through to SQLite
+                elif _is_undefined_relation(exc):
+                    # Missing table/relation => the schema isn't bootstrapped yet. This is
+                    # NOT a genuine data error and NOT a reason to use SQLite (TASK 2).
+                    # Bootstrap the PG schema, then retry the query ON POSTGRES.
+                    log.error("[DB BOOTSTRAP] PG relation missing — bootstrapping schema then "
+                              "retrying | %.150s", query)
+                    counters.inc("db_schema_repair")
+                    if conn:
+                        try:
+                            pool.putconn(conn, close=True)
+                        except Exception:
+                            pass
+                        conn = None
+                    if _repair_pg_schema():
+                        p2 = _get_pg_pool()
+                        if p2:
+                            c2 = None
+                            try:
+                                c2 = p2.getconn()
+                                c2.autocommit = True
+                                with c2.cursor(cursor_factory=RealDictCursor) as c2cur:
+                                    c2cur.execute("SET statement_timeout = '15s'")
+                                    c2cur.execute(query.replace("?", "%s"), params or ())
+                                    return _collect_result(c2cur, fetch)
+                            except Exception as retry_exc:
+                                log.error("[DB BOOTSTRAP] schema-repair retry failed: %s | %.150s",
+                                          retry_exc, query)
+                            finally:
+                                if c2:
+                                    try:
+                                        p2.putconn(c2)
+                                    except Exception:
+                                        pass
+                    # repair/retry didn't succeed -> fall through (last-resort SQLite)
                 else:
                     # Query syntax error, missing column, or data error
                     # Do NOT trigger global cooldown, just log and fallback for this specific query
@@ -861,6 +895,79 @@ def execute_many(query: str, params_list: list):
 
 _db_initialized = False
 _db_init_lock = threading.Lock()
+# ── PostgreSQL bootstrap state (production reliability) ──────────────────────
+_pg_schema_ready = False        # True once init_db verified/created the PG schema
+_schema_repairing = False       # re-entrancy guard for on-demand schema repair
+
+
+def _connect_pg_with_retry(url, cursor_factory=None):
+    """Connect to Postgres, RETRYING while the server comes up.
+
+    On Coolify/Docker the app container can start BEFORE the sibling Postgres
+    container is ready to accept authenticated connections (a startup race). The old
+    code connected once and, on failure, silently fell back to SQLite init — leaving
+    Postgres with no schema. Here we wait (bounded) for PG so the schema is bootstrapped
+    on the REAL database. Raises the last error only after the retry budget is spent
+    (that means PG is genuinely unreachable). Budget is env-tunable:
+    DB_INIT_MAX_RETRIES (default 15), DB_INIT_RETRY_DELAY seconds (default 2.0).
+    """
+    import psycopg2
+    attempts = max(1, int(os.getenv("DB_INIT_MAX_RETRIES", "15")))
+    delay = float(os.getenv("DB_INIT_RETRY_DELAY", "2.0"))
+    last_exc = None
+    for i in range(1, attempts + 1):
+        try:
+            kwargs = {"connect_timeout": 5}
+            if cursor_factory is not None:
+                kwargs["cursor_factory"] = cursor_factory
+            conn = psycopg2.connect(url, **kwargs)
+            if i > 1:
+                log.info("[DB BOOTSTRAP] Postgres reachable on attempt %d/%d", i, attempts)
+            return conn
+        except Exception as exc:
+            last_exc = exc
+            first = (str(exc).splitlines() or [type(exc).__name__])[0]
+            log.warning("[DB BOOTSTRAP] Postgres not ready (attempt %d/%d): %s", i, attempts, first[:160])
+            if i < attempts:
+                time.sleep(delay)
+    raise last_exc
+
+
+def _is_undefined_relation(exc) -> bool:
+    """True if a PG error is 'relation/table/column does not exist' (schema not yet
+    bootstrapped) — as opposed to a genuine syntax/data error."""
+    name = type(exc).__name__.lower()
+    if "undefinedtable" in name or "undefinedcolumn" in name:
+        return True
+    s = str(exc).lower()
+    return "does not exist" in s and ("relation" in s or "column" in s)
+
+
+def _repair_pg_schema() -> bool:
+    """Idempotently (re)create the PG schema when a query hits a missing relation.
+    Guarded against re-entrancy so the backfill/audit inside the init logic can't recurse."""
+    global _schema_repairing, _db_initialized
+    if _schema_repairing or not is_postgresql():
+        return False
+    _schema_repairing = True
+    try:
+        _db_initialized = False
+        _run_init_db_logic()     # CREATE ... IF NOT EXISTS — recreates any missing PG tables
+        _db_initialized = True
+        return _pg_schema_ready
+    except Exception as exc:
+        log.error("[DB BOOTSTRAP] schema repair failed: %s", exc)
+        return False
+    finally:
+        _schema_repairing = False
+
+
+def schema_ready() -> bool:
+    """DB readiness for the healthcheck. SQLite mode -> always True (schema self-created).
+    PostgreSQL mode -> True only once init_db has bootstrapped the PG schema."""
+    if not is_postgresql():
+        return True
+    return _pg_schema_ready
 
 def init_db():
     global _db_initialized
@@ -882,12 +989,15 @@ def _run_init_db_logic():
     Uses an explicit temporary connection rather than the pool so that
     DDL runs atomically even when called before the pool is initialised.
     """
+    global _pg_schema_ready
     if is_postgresql():
         try:
             import psycopg2
             from psycopg2.extras import RealDictCursor
             url = _normalize_pg_url(DATABASE_URL)
-            conn = psycopg2.connect(url, cursor_factory=RealDictCursor, connect_timeout=5)
+            # Retry the connect so a fresh Coolify/Docker Postgres that isn't ready at
+            # boot still gets its schema bootstrapped (instead of silently using SQLite).
+            conn = _connect_pg_with_retry(url, cursor_factory=RealDictCursor)
             conn.autocommit = True
             try:
                 cur = conn.cursor()
@@ -1868,10 +1978,16 @@ def _run_init_db_logic():
                     log.warning("Phase 5.8: scan_runs.universe_version migration failed (non-fatal): %s", exc)
 
                 log.info("PostgreSQL tables checked/created.")
+                _pg_schema_ready = True
             finally:
                 conn.close()
         except Exception as exc:
-            log.error("init_db PG failed: %s — falling back to SQLite init", exc)
+            # Reached only AFTER connect-retries are exhausted => Postgres is genuinely
+            # unreachable (TASK 2 permits a SQLite fallback for an unreachable PG — but
+            # NOT for a missing schema). Leave _pg_schema_ready False so /healthz reports
+            # unhealthy; a later query self-heals via _repair_pg_schema once PG is back.
+            log.error("[DB BOOTSTRAP] PostgreSQL unreachable after retries: %s — running "
+                      "degraded on SQLite; /healthz will report unhealthy", exc)
 
     # Always init SQLite tables as safety net for pool-exhaustion fallback
     _init_sqlite()

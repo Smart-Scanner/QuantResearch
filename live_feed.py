@@ -748,6 +748,11 @@ def stop_websocket():
         except Exception:
             pass
 
+def ws_running() -> bool:
+    """True if the live-feed WebSocket thread is currently running.
+    Lets the app start the WebSocket lazily (market-gated) instead of at boot."""
+    return bool(_ws_running)
+
 def _rest_gap():
     global _hist_last_call
     with _hist_lock:

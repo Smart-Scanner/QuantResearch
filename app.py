@@ -49,7 +49,12 @@ os.makedirs("logs", exist_ok=True)
 import db
 import auth_db
 import live_feed
-live_feed.load_token_map()  # Ensure angel_tokens.json exists before universe_sync runs
+# TASK 4/7 (lazy broker init): load the LOCAL Angel token map at boot ONLY if the
+# cached file already exists (a cheap local JSON read, no network). If it's missing,
+# do NOT fetch Angel's scrip-master at startup — get_token() lazy-loads it on first
+# real use (a scan/data-fetch/live-price call), so startup stays completely broker-free.
+if live_feed.TOKEN_FILE.exists():
+    live_feed.load_token_map()
 import cache_layer
 from config import AUTO_SCAN_INTERVAL, FLASK_SECRET_KEY, DATA_LOOKBACK_DAYS
 from scanner import scan_state, has_valid_cache, run_full_scan, _shutdown_event
@@ -158,8 +163,23 @@ def _single_user_autologin():
 
 @app.route("/healthz")
 def _healthz():
-    """Lightweight liveness probe (no DB/broker dependency)."""
-    return {"status": "ok", "service": "quantresearch"}, 200
+    """Liveness + DB readiness. 200 when the process is up AND the DB is usable
+    (SQLite mode, or the Postgres schema has been bootstrapped). 503 when Postgres is
+    configured but its schema is NOT ready — so a fresh deploy surfaces the problem
+    instead of silently degrading to SQLite (TASK 8)."""
+    try:
+        import db
+        ready = db.schema_ready()
+        backend = "postgres" if db.is_postgresql() else "sqlite"
+    except Exception:
+        ready, backend = False, "unknown"
+    body = {
+        "status": "ok" if ready else "degraded",
+        "service": "quantresearch",
+        "db": backend,
+        "schema_ready": ready,
+    }
+    return (body, 200) if ready else (body, 503)
 
 # ---------------------------------------------------------------------------
 # Startup
@@ -274,24 +294,45 @@ if USE_UNIVERSE_ENGINE:
     else:
         log.info("[Phase 5.5] No pending resume state")
 
-# Start Angel One WebSocket for live prices
-def _start_websocket_with_retry():
-    """Start WebSocket with retry — handles Railway network timeout on first boot."""
-    import time as _time
-    for attempt, delay in enumerate([0, 30, 90], start=1):
-        if delay > 0:
-            log.info("WebSocket retry #%d in %ds...", attempt, delay)
-            _time.sleep(delay)
-        try:
-            live_feed.start_websocket()
-            log.info("Angel One WebSocket started (attempt #%d)", attempt)
-            return
-        except Exception as exc:
-            log.warning("WebSocket attempt #%d failed: %s", attempt, exc)
-    log.error("WebSocket failed after 3 attempts — using REST fallback for live prices")
+# ── Live Angel One WebSocket — LAZY, market-gated (TASK 4/5: no broker at startup) ──
+# Do NOT log in to Angel or open the WebSocket at startup. The WebSocket (which calls
+# ensure_session() = a broker login) starts ONLY when the market is actually open —
+# i.e. live-market mode, when live ticks are genuinely needed for real-time paper-trade
+# SL/target execution. At boot (and any off-hours) nothing contacts the broker, so
+# startup is completely broker-free. Set DISABLE_LIVE_WS=1 to keep it off entirely
+# (REST / stored-data fallback only).
+_LIVE_WS_DISABLED = os.environ.get("DISABLE_LIVE_WS") == "1"
 
-import threading
-threading.Thread(target=_start_websocket_with_retry, name="ws-startup", daemon=True).start()
+def _live_ws_supervisor():
+    """Start the live-feed WebSocket the first time the market is open, with retry, and
+    keep it available across sessions. Never contacts the broker while the market is
+    closed, so startup and off-hours stay broker-free (lazy live-market init)."""
+    import time as _time
+    while True:
+        try:
+            if live_feed.is_market_open() and not live_feed.ws_running():
+                log.info("[LiveWS] Market open — starting Angel WebSocket (lazy live mode)")
+                for attempt, delay in enumerate([0, 30, 90], start=1):
+                    if delay > 0:
+                        _time.sleep(delay)
+                    if live_feed.ws_running():
+                        break
+                    try:
+                        live_feed.start_websocket()
+                        log.info("[LiveWS] Angel One WebSocket started (attempt #%d)", attempt)
+                        break
+                    except Exception as exc:
+                        log.warning("[LiveWS] WebSocket attempt #%d failed: %s", attempt, exc)
+        except Exception as exc:
+            log.debug("[LiveWS] supervisor error: %s", exc)
+        _time.sleep(60)  # re-check market state every minute
+
+if _LIVE_WS_DISABLED:
+    log.info("[LiveWS] DISABLE_LIVE_WS=1 — live WebSocket disabled (REST/stored fallback only)")
+else:
+    threading.Thread(target=_live_ws_supervisor, name="live-ws-supervisor", daemon=True).start()
+    log.info("[LiveWS] Live WebSocket armed (lazy) — starts only when the market is open; "
+             "startup stays broker-free")
 
 
 # ── STAGE-1 daily data ingestion (06:00 IST) ──────────────────────────────────
